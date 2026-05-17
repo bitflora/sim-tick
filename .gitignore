@@ -1,0 +1,7 @@
+.pytest_cache
+.claude
+.vscode
+.venv
+node_modules
+__pycache__
+*.pyc
