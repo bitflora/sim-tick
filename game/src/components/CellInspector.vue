@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useGameStore } from '../store/game';
-import { INTERVENTION_LIST } from '../sim/interventions';
+import { INTERVENTION_LIST, emptyModifiers, type Intervention, type Modifiers } from '../sim/interventions';
 
 const store = useGameStore();
 const cell = computed(() => store.grid[store.selectedCell]);
@@ -10,6 +10,31 @@ const deploys = computed(() => store.pendingDeployments[store.selectedCell] ?? n
 function pct(num: number, denom: number): string {
   if (denom <= 0) return '—';
   return (100 * num / denom).toFixed(1) + '%';
+}
+
+const MOD_LABELS: Record<keyof Modifiers, string> = {
+  tickSurvivalMul: 'all ticks',
+  adultSurvivalMul: 'adults',
+  nymphSurvivalMul: 'nymphs',
+  larvaSurvivalMul: 'larvae',
+  mouseDensityMul: 'mice',
+  deerDensityMul: 'deer',
+  habMul: 'habitat',
+  humanTransmissionMul: 'human cases',
+};
+
+function effects(iv: Intervention): string {
+  const m = emptyModifiers();
+  iv.apply(m);
+  const parts: string[] = [];
+  for (const k of Object.keys(m) as (keyof Modifiers)[]) {
+    if (m[k] !== 1) {
+      const reduction = Math.round((1 - m[k]) * 100);
+      parts.push(`−${reduction}% ${MOD_LABELS[k]}`);
+    }
+  }
+  if (iv.persistsYears && iv.persistsYears > 1) parts.push(`${iv.persistsYears}y`);
+  return parts.join(' · ');
 }
 </script>
 
@@ -35,9 +60,10 @@ function pct(num: number, denom: number): string {
         />
         <div class="iv-body">
           <div class="iv-head">
-            <span class="iv-name">{{ iv.name }}</span>
+            <span class="iv-name"><span class="iv-icon">{{ iv.icon }}</span>{{ iv.name }}</span>
             <span class="iv-cost">${{ iv.cost }}</span>
           </div>
+          <small class="iv-effects">{{ effects(iv) }}</small>
           <small>{{ iv.blurb }}</small>
         </div>
       </label>
@@ -59,5 +85,7 @@ h4 { margin: 12px 0 6px 0; font-size: 13px; color: var(--muted); text-transform:
 .iv-head { display: flex; justify-content: space-between; font-size: 13px; }
 .iv-cost { color: var(--accent); font-variant-numeric: tabular-nums; }
 .iv-name { font-weight: 500; }
+.iv-icon { margin-right: 6px; }
+.iv-effects { color: var(--accent); font-variant-numeric: tabular-nums; margin-bottom: 2px; }
 small { font-size: 11px; line-height: 1.3; display: block; }
 </style>
