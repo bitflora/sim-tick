@@ -2,7 +2,9 @@
 // Units: densities per hectare, rates per year. Values chosen for plausibility,
 // not for publication-grade calibration. Sources noted inline.
 
-export const GRID_SIZE = 10;
+// Grid edge length (cells). Override at build/dev time with VITE_GRID_SIZE.
+const envGridSize = Number(import.meta.env.VITE_GRID_SIZE);
+export const GRID_SIZE = Number.isFinite(envGridSize) && envGridSize > 0 ? envGridSize : 5;
 export const HECTARES_PER_CELL = 1;
 
 // --- Tick demography (annual survival fractions, not daily rates) -----------
