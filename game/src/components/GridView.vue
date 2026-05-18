@@ -45,7 +45,7 @@ function hasDeploy(i: number): boolean {
 <template>
   <div class="grid-wrap panel">
     <h3>Ecosystem grid <small>— ↘ gradient: total ticks → infected nymphs</small></h3>
-    <div class="grid" :style="{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }">
+    <div class="grid" :style="{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(64px, 1fr))` }">
       <div
         v-for="(c, i) in store.grid"
         :key="i"
@@ -72,11 +72,15 @@ function hasDeploy(i: number): boolean {
 </template>
 
 <style scoped>
-.grid-wrap { width: fit-content; }
-.grid { display: grid; gap: 2px; padding: 4px; background: var(--border); border-radius: 4px; }
+.grid-wrap { flex: 1 1 auto; min-width: 0; }
+.grid {
+  display: grid; gap: 2px; padding: 4px; background: var(--border); border-radius: 4px;
+  width: 100%;
+}
 .cell {
   position: relative;
-  width: 32px; height: 32px; cursor: pointer; border: 2px solid transparent;
+  width: 100%; aspect-ratio: 1 / 1;
+  cursor: pointer; border: 2px solid transparent;
   border-radius: 2px; transition: transform 0.05s;
   overflow: hidden;
 }
@@ -86,7 +90,7 @@ function hasDeploy(i: number): boolean {
 .glyphs {
   position: absolute; left: 1px; bottom: 0; right: 1px;
   display: flex; flex-wrap: wrap; gap: 0; line-height: 1;
-  font-size: 10px; pointer-events: none;
+  font-size: 32px; pointer-events: none;
 }
 .glyph { display: inline-block; }
 .glyph.faded { opacity: 0.35; filter: grayscale(0.5); }
