@@ -56,7 +56,6 @@ export const DISPERSAL = {
 
 // --- Economy ----------------------------------------------------------------
 export const ECON = {
-  annualBudget: 50_000,          // USD per year.
   gameYears: 10,
 };
 

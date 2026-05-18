@@ -6,7 +6,7 @@ const store = useGameStore();
 
 <template>
   <div class="panel controls">
-    <button :disabled="store.overBudget || store.gameOver" @click="store.advance">
+    <button :disabled="store.gameOver" @click="store.advance">
       Advance year ▶
     </button>
     <button @click="store.reset">Reset</button>

@@ -34,8 +34,6 @@ export const useGameStore = defineStore('game', {
   }),
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
-    budgetRemaining(): number { return ECON.annualBudget - this.pendingCost; },
-    overBudget(): boolean { return this.pendingCost > ECON.annualBudget; },
     yearsRemaining(): number { return ECON.gameYears - this.year; },
     gridSize: () => GRID_SIZE,
   },
@@ -51,7 +49,7 @@ export const useGameStore = defineStore('game', {
       delete this.pendingDeployments[cellIdx];
     },
     advance() {
-      if (this.gameOver || this.overBudget) return;
+      if (this.gameOver) return;
       const r = advanceYear(this.grid, this.pendingDeployments);
       this.grid = r.grid;
       this.year += 1;

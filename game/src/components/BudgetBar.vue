@@ -10,7 +10,7 @@ const store = useGameStore();
     <div class="stat"><small>Year</small><b>{{ store.year }} / {{ ECON.gameYears }}</b></div>
     <div class="stat"><small>Cumulative cases</small><b>{{ store.cumulativeCases.toFixed(1) }}</b></div>
     <div class="stat"><small>Pending spend</small>
-      <b :class="{ over: store.overBudget }">${{ store.pendingCost.toLocaleString() }} / ${{ ECON.annualBudget.toLocaleString() }}</b>
+      <b>${{ store.pendingCost.toLocaleString() }}</b>
     </div>
     <div class="stat"><small>Total spent</small><b>${{ store.cumulativeSpend.toLocaleString() }}</b></div>
   </div>
