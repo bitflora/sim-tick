@@ -1,4 +1,5 @@
 import { INIT, MOUSE, DEER } from './params';
+import type { InterventionId } from './interventions';
 
 export interface CellState {
   // Ticks (per ha): total counts. Infected subset tracked separately.
@@ -10,8 +11,9 @@ export interface CellState {
   D: number;
   // Habitat quality multiplier on tick survival (0..1).
   hab: number;
-  // Persistent intervention state (years of remaining effect for multi-year items).
-  habMgmtYearsLeft: number;
+  // Per-cell carry-over for multi-year interventions. Keys are intervention
+  // IDs whose `persistsYears` >= 1; values are years of remaining effect.
+  persistEffects: Partial<Record<InterventionId, number>>;
 }
 
 export function makeInitialCell(): CellState {
@@ -26,10 +28,10 @@ export function makeInitialCell(): CellState {
     Minf: MOUSE.init * INIT.fracMouseInf,
     D: DEER.init,
     hab: 1.0,
-    habMgmtYearsLeft: 0,
+    persistEffects: {},
   };
 }
 
 export function cloneCell(c: CellState): CellState {
-  return { ...c };
+  return { ...c, persistEffects: { ...c.persistEffects } };
 }

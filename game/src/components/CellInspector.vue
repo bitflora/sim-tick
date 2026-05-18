@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useGameStore } from '../store/game';
-import { INTERVENTION_LIST, emptyModifiers, type Intervention, type Modifiers } from '../sim/interventions';
+import {
+  INTERVENTION_LIST,
+  METRIC_LEGEND,
+  emptyModifiers,
+  type Intervention,
+  type Modifiers,
+  type InterventionId,
+} from '../sim/interventions';
 
 const store = useGameStore();
 const cell = computed(() => store.grid[store.selectedCell]);
@@ -23,7 +30,7 @@ const MOD_LABELS: Record<keyof Modifiers, string> = {
   humanTransmissionMul: 'human cases',
 };
 
-function effects(iv: Intervention): string {
+function modEffects(iv: Intervention): string {
   const m = emptyModifiers();
   iv.apply(m);
   const parts: string[] = [];
@@ -36,6 +43,10 @@ function effects(iv: Intervention): string {
   if (iv.persistsYears && iv.persistsYears > 1) parts.push(`${iv.persistsYears}y`);
   return parts.join(' · ');
 }
+
+function carryYears(id: InterventionId): number {
+  return cell.value.persistEffects[id] ?? 0;
+}
 </script>
 
 <template>
@@ -47,7 +58,13 @@ function effects(iv: Intervention): string {
       <div><b>Adults</b> {{ cell.A.toFixed(0) }} <small>({{ pct(cell.Ainf, cell.A) }} inf)</small></div>
       <div><b>Mice</b> {{ cell.M.toFixed(1) }}/ha <small>({{ pct(cell.Minf, cell.M) }} inf)</small></div>
       <div><b>Deer</b> {{ cell.D.toFixed(2) }}/ha</div>
-      <div><b>Habitat</b> {{ cell.hab.toFixed(2) }} <small v-if="cell.habMgmtYearsLeft > 0">(mgmt: {{ cell.habMgmtYearsLeft }}y left)</small></div>
+      <div><b>Habitat</b> {{ cell.hab.toFixed(2) }}</div>
+    </div>
+    <div v-if="Object.keys(cell.persistEffects).length > 0" class="carry">
+      <b>Active carry-over:</b>
+      <span v-for="(yrs, id) in cell.persistEffects" :key="id">
+        {{ id }} ({{ yrs }}y)
+      </span>
     </div>
 
     <h4>Deploy next year</h4>
@@ -63,29 +80,59 @@ function effects(iv: Intervention): string {
             <span class="iv-name"><span class="iv-icon">{{ iv.icon }}</span>{{ iv.name }}</span>
             <span class="iv-cost">${{ iv.cost }}</span>
           </div>
-          <small class="iv-effects">{{ effects(iv) }}</small>
+          <div class="iv-effect" :title="METRIC_LEGEND[iv.effect.metric]">
+            −{{ iv.effect.medianPct }}% {{ iv.effect.metric }}
+            <span class="range">(range {{ iv.effect.rangePct[0] }}–{{ iv.effect.rangePct[1] }}%)</span>
+            <span v-if="iv.persistsYears && iv.persistsYears > 1" class="persist">· {{ iv.persistsYears }}-yr</span>
+            <span v-if="carryYears(iv.id) > 0" class="active">· active ({{ carryYears(iv.id) }}y left)</span>
+          </div>
+          <small class="iv-mods">sim: {{ modEffects(iv) }}</small>
           <small>{{ iv.blurb }}</small>
+          <small v-if="iv.effect.note" class="iv-note">⚠ {{ iv.effect.note }}</small>
+          <small class="iv-cites">
+            <a
+              v-for="(c, i) in iv.citations"
+              :key="c.url"
+              :href="c.url"
+              target="_blank"
+              rel="noopener"
+            >{{ c.label }}<span v-if="i < iv.citations.length - 1">, </span></a>
+          </small>
         </div>
       </label>
     </div>
+    <small class="legend">
+      QN = questing nymph density · HC = human cases · EM = erythema migrans · NIP = nymph infection prevalence
+    </small>
     <button v-if="deploys.size > 0" @click="store.clearCellDeployments(store.selectedCell)">Clear cell</button>
   </div>
 </template>
 
 <style scoped>
-.inspector { min-width: 320px; max-width: 360px; }
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; font-size: 13px; }
+.inspector { min-width: 340px; max-width: 380px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 8px; font-size: 13px; }
 .stats b { color: var(--muted); font-weight: 500; }
+.carry { font-size: 11px; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.carry b { color: var(--accent); }
 h4 { margin: 12px 0 6px 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .iv-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .iv { display: flex; align-items: flex-start; gap: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
 .iv:hover { border-color: var(--accent); }
 .iv input { margin-top: 3px; }
-.iv-body { flex: 1; }
+.iv-body { flex: 1; min-width: 0; }
 .iv-head { display: flex; justify-content: space-between; font-size: 13px; }
 .iv-cost { color: var(--accent); font-variant-numeric: tabular-nums; }
 .iv-name { font-weight: 500; }
 .iv-icon { margin-right: 6px; }
-.iv-effects { color: var(--accent); font-variant-numeric: tabular-nums; margin-bottom: 2px; }
-small { font-size: 11px; line-height: 1.3; display: block; }
+.iv-effect { font-size: 12px; color: var(--accent); font-variant-numeric: tabular-nums; margin: 2px 0; }
+.iv-effect .range { color: var(--muted); font-weight: normal; }
+.iv-effect .persist { color: var(--muted); }
+.iv-effect .active { color: #2a8; }
+.iv-mods { color: var(--muted); font-style: italic; }
+.iv-note { color: #c80; }
+.iv-cites { margin-top: 2px; }
+.iv-cites a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+.iv-cites a:hover { text-decoration: underline; }
+small { font-size: 11px; line-height: 1.35; display: block; }
+.legend { color: var(--muted); font-size: 10px; margin-bottom: 8px; }
 </style>

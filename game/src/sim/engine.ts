@@ -30,13 +30,16 @@ export function makeInitialGrid(): Grid {
 
 function modifiersFor(cell: CellState, deploys: Set<InterventionId> | undefined): Modifiers {
   const m = emptyModifiers();
+  // Apply this year's fresh deployments.
   if (deploys) {
     for (const id of deploys) INTERVENTIONS[id].apply(m);
   }
-  // Carry-over habitat management effect.
-  if (cell.habMgmtYearsLeft > 0) {
-    // Already applied last year; if user re-buys, persistsYears resets in engine below.
-    m.habMul *= 0.6;
+  // Apply carry-over from prior years' multi-year interventions. Skip any
+  // intervention that was also deployed fresh this year (already applied).
+  for (const [id, years] of Object.entries(cell.persistEffects) as [InterventionId, number][]) {
+    if (years > 0 && !deploys?.has(id)) {
+      INTERVENTIONS[id].apply(m);
+    }
   }
   return m;
 }
@@ -48,11 +51,17 @@ function saturation(host: number, kHalf: number): number {
 function stepCell(cell: CellState, deploys: Set<InterventionId> | undefined): number {
   const mods = modifiersFor(cell, deploys);
 
-  // Update habitat persistence bookkeeping.
-  if (deploys?.has('habitatMgmt')) {
-    cell.habMgmtYearsLeft = INTERVENTIONS.habitatMgmt.persistsYears ?? 1;
-  } else if (cell.habMgmtYearsLeft > 0) {
-    cell.habMgmtYearsLeft -= 1;
+  // Multi-year persistence: refresh counter on fresh deploy, else decrement.
+  for (const iv of Object.values(INTERVENTIONS)) {
+    if (!iv.persistsYears || iv.persistsYears < 1) continue;
+    if (deploys?.has(iv.id)) {
+      // Counter stores years of *future* carry-over beyond the deploy year.
+      cell.persistEffects[iv.id] = iv.persistsYears - 1;
+      if (cell.persistEffects[iv.id] === 0) delete cell.persistEffects[iv.id];
+    } else if ((cell.persistEffects[iv.id] ?? 0) > 0) {
+      cell.persistEffects[iv.id] = (cell.persistEffects[iv.id] ?? 0) - 1;
+      if (cell.persistEffects[iv.id] === 0) delete cell.persistEffects[iv.id];
+    }
   }
   cell.hab = mods.habMul;
 

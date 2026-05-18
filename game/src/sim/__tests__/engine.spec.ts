@@ -44,6 +44,21 @@ describe('engine', () => {
     const g = makeInitialGrid();
     const deploys: Deployments = { 0: new Set(['acaricide', 'messaging']) };
     const r = advanceYear(g, deploys);
-    expect(r.spend).toBe(400 + 50);
+    expect(r.spend).toBe(700 + 50);
+  });
+
+  it('deer fencing persists across years without redeployment', () => {
+    let g = makeInitialGrid();
+    const deploys: Deployments = { 0: new Set(['deerFencing']) };
+    g = advanceYear(g, deploys).grid;
+    expect(g[0].persistEffects.deerFencing).toBe(9);
+    // Advance 3 more years with no deployments; counter decrements.
+    for (let y = 0; y < 3; y++) g = advanceYear(g, {}).grid;
+    expect(g[0].persistEffects.deerFencing).toBe(6);
+    // Adult ticks should be heavily suppressed compared to baseline.
+    const baseline = makeInitialGrid();
+    let b = baseline;
+    for (let y = 0; y < 4; y++) b = advanceYear(b, {}).grid;
+    expect(g[0].A).toBeLessThan(b[0].A * 0.6);
   });
 });
