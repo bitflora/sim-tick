@@ -15,6 +15,7 @@ interface State {
   year: number;
   selectedCell: number;
   pendingDeployments: Deployments;
+  lastDeployments: Deployments;
   history: YearRecord[];
   cumulativeCases: number;
   cumulativeSpend: number;
@@ -27,6 +28,7 @@ export const useGameStore = defineStore('game', {
     year: 0,
     selectedCell: 0,
     pendingDeployments: {},
+    lastDeployments: {},
     history: [],
     cumulativeCases: 0,
     cumulativeSpend: 0,
@@ -56,6 +58,11 @@ export const useGameStore = defineStore('game', {
       this.cumulativeCases += r.casesThisYear;
       this.cumulativeSpend += r.spend;
       this.history.push({ year: this.year, cases: r.casesThisYear, spend: r.spend });
+      const snapshot: Deployments = {};
+      for (const [k, v] of Object.entries(this.pendingDeployments)) {
+        snapshot[Number(k)] = new Set<InterventionId>(v);
+      }
+      this.lastDeployments = snapshot;
       this.pendingDeployments = {};
       if (this.year >= ECON.gameYears) this.gameOver = true;
     },
@@ -64,6 +71,7 @@ export const useGameStore = defineStore('game', {
       this.year = 0;
       this.selectedCell = 0;
       this.pendingDeployments = {};
+      this.lastDeployments = {};
       this.history = [];
       this.cumulativeCases = 0;
       this.cumulativeSpend = 0;

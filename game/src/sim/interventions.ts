@@ -35,44 +35,45 @@ export interface Intervention {
   name: string;
   cost: number;                  // USD/cell/yr
   blurb: string;
+  icon: string;                  // emoji glyph for grid overlay
   apply(m: Modifiers): void;
   persistsYears?: number;        // if >0, treat as multi-year (engine handles)
 }
 
 export const INTERVENTIONS: Record<InterventionId, Intervention> = {
   acaricide: {
-    id: 'acaricide', name: 'Acaricide broadcast', cost: 400,
+    id: 'acaricide', name: 'Acaricide broadcast', cost: 400, icon: '🧪',
     blurb: 'Bifenthrin broadcast on vegetation. 70-90% nymph reduction in trials.',
     apply: (m) => { m.tickSurvivalMul *= 0.20; },
   },
   tickTubes: {
-    id: 'tickTubes', name: 'Tick tubes / bait boxes', cost: 250,
+    id: 'tickTubes', name: 'Tick tubes / bait boxes', cost: 250, icon: '🏠',
     blurb: 'Permethrin-treated bedding for mice. Kills feeding larvae & nymphs.',
     apply: (m) => { m.larvaSurvivalMul *= 0.40; m.nymphSurvivalMul *= 0.55; },
   },
   fourPoster: {
-    id: 'fourPoster', name: '4-Poster deer stations', cost: 1200,
+    id: 'fourPoster', name: '4-Poster deer stations', cost: 1200, icon: '🎯',
     blurb: 'Self-applicator treats deer with acaricide. Adult-stage focus.',
     apply: (m) => { m.adultSurvivalMul *= 0.30; },
   },
   deerCull: {
-    id: 'deerCull', name: 'Deer culling', cost: 500,
+    id: 'deerCull', name: 'Deer culling', cost: 500, icon: '🦌',
     blurb: 'Reduce deer density 50% this year. Cuts adult reproduction.',
     apply: (m) => { m.deerDensityMul *= 0.50; },
   },
   mouseReduction: {
-    id: 'mouseReduction', name: 'Mouse trapping', cost: 300,
+    id: 'mouseReduction', name: 'Mouse trapping', cost: 300, icon: '🐭',
     blurb: 'Reduce mice 40% this year. Cuts larval & nymphal feeding success and Lyme reservoir.',
     apply: (m) => { m.mouseDensityMul *= 0.60; },
   },
   habitatMgmt: {
-    id: 'habitatMgmt', name: 'Habitat management', cost: 150,
+    id: 'habitatMgmt', name: 'Habitat management', cost: 150, icon: '🌿',
     blurb: 'Leaf removal, mowing, edge cleanup. Modest but cheap; lasts 2 years.',
     apply: (m) => { m.habMul *= 0.6; },
     persistsYears: 2,
   },
   messaging: {
-    id: 'messaging', name: 'Messaging / PPE', cost: 50,
+    id: 'messaging', name: 'Messaging / PPE', cost: 50, icon: '📣',
     blurb: 'Public outreach + repellent subsidies. Halves human bite-to-case rate.',
     apply: (m) => { m.humanTransmissionMul *= 0.5; },
   },
