@@ -10,22 +10,24 @@ import HistoryChart from './components/HistoryChart.vue';
   <div class="app">
     <header>
       <h1>Tick Mitigation <small>— Lyme disease across a 10×10 ecosystem</small></h1>
+      <YearControls />
     </header>
     <BudgetBar />
     <div class="row">
-      <GridView />
+      <div class="grid-col">
+        <GridView />
+        <HistoryChart />
+      </div>
       <CellInspector />
-    </div>
-    <div class="row">
-      <YearControls />
-      <HistoryChart />
     </div>
   </div>
 </template>
 
 <style scoped>
 .app { max-width: 1200px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 header h1 { font-size: 20px; }
 header small { color: var(--muted); font-weight: 400; }
 .row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.grid-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 </style>

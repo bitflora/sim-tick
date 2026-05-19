@@ -84,8 +84,9 @@ function hasDeploy(i: number): boolean {
   border-radius: 2px; transition: transform 0.05s;
   overflow: hidden;
 }
-.cell:hover { transform: scale(1.1); z-index: 1; }
+.cell:hover { transform: scale(1.1); z-index: 1; border-color: #fff; }
 .cell.selected { border-color: var(--accent); }
+.cell.selected:hover { border-color: var(--accent); }
 .cell.deploy { box-shadow: inset 0 0 0 2px #fff; }
 .glyphs {
   position: absolute; left: 1px; bottom: 0; right: 1px;

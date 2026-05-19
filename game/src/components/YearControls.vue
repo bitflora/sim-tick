@@ -5,7 +5,7 @@ const store = useGameStore();
 </script>
 
 <template>
-  <div class="panel controls">
+  <div class="controls">
     <button :disabled="store.gameOver" @click="store.advance">
       Advance year ▶
     </button>

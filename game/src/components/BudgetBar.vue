@@ -1,14 +1,24 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useGameStore } from '../store/game';
 import { ECON } from '../sim/params';
 
 const store = useGameStore();
+
+const totalTicks = computed(() =>
+  store.grid.reduce((s, c) => s + c.L + c.N + c.A, 0),
+);
+const infectedTicks = computed(() =>
+  store.grid.reduce((s, c) => s + c.Linf + c.Ninf + c.Ainf, 0),
+);
 </script>
 
 <template>
   <div class="panel bar">
     <div class="stat"><small>Year</small><b>{{ store.year }} / {{ ECON.gameYears }}</b></div>
-    <div class="stat"><small>Cumulative cases</small><b>{{ store.cumulativeCases.toFixed(1) }}</b></div>
+    <div class="stat"><small>Ticks (yr)</small><b>{{ totalTicks.toFixed(0) }}</b></div>
+    <div class="stat"><small>Infected ticks (yr)</small><b>{{ infectedTicks.toFixed(0) }}</b></div>
+    <div class="stat"><small>Infected humans (total)</small><b>{{ store.cumulativeCases.toFixed(1) }}</b></div>
     <div class="stat"><small>Pending spend</small>
       <b>${{ store.pendingCost.toLocaleString() }}</b>
     </div>
