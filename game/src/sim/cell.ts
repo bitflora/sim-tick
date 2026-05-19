@@ -14,6 +14,10 @@ export interface CellState {
   // Per-cell carry-over for multi-year interventions. Keys are intervention
   // IDs whose `persistsYears` >= 1; values are years of remaining effect.
   persistEffects: Partial<Record<InterventionId, number>>;
+  // Per-cell count of consecutive years each ramp-schedule intervention has
+  // been freshly deployed. Resets to 0 on a skipped year. Used by fourPoster's
+  // multi-season build-up (Stafford 2017: yr1 ~8%, ramps to 60–91% by yr3+).
+  consecutiveYears: Partial<Record<InterventionId, number>>;
 }
 
 export function makeInitialCell(): CellState {
@@ -29,9 +33,14 @@ export function makeInitialCell(): CellState {
     D: DEER.init,
     hab: 1.0,
     persistEffects: {},
+    consecutiveYears: {},
   };
 }
 
 export function cloneCell(c: CellState): CellState {
-  return { ...c, persistEffects: { ...c.persistEffects } };
+  return {
+    ...c,
+    persistEffects: { ...c.persistEffects },
+    consecutiveYears: { ...c.consecutiveYears },
+  };
 }

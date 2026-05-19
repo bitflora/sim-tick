@@ -9,6 +9,7 @@ import {
   type Modifiers,
   type InterventionId,
 } from '../sim/interventions';
+import { clusterSizes } from '../sim/clustering';
 
 const store = useGameStore();
 const cell = computed(() => store.grid[store.selectedCell]);
@@ -19,7 +20,9 @@ function pct(num: number, denom: number): string {
   return (100 * num / denom).toFixed(1) + '%';
 }
 
-const MOD_LABELS: Record<keyof Modifiers, string> = {
+type NumericModKey = Exclude<keyof Modifiers, 'propertyScaleActive'>;
+
+const MOD_LABELS: Record<NumericModKey, string> = {
   tickSurvivalMul: 'all ticks',
   adultSurvivalMul: 'adults',
   nymphSurvivalMul: 'nymphs',
@@ -28,24 +31,56 @@ const MOD_LABELS: Record<keyof Modifiers, string> = {
   deerDensityMul: 'deer',
   habMul: 'habitat',
   humanTransmissionMul: 'human cases',
+  mouseAcquisitionMul: 'mouse acquires from nymphs',
+  mouseInfectivityMul: 'mouse infects larvae',
 };
 
 function modEffects(iv: Intervention): string {
   const m = emptyModifiers();
-  iv.apply(m);
+  // Display: show full-effect (yr3+) for ramp interventions.
+  const ctx = { consecutiveYears: iv.rampSchedule?.length ?? 1 };
+  iv.apply(m, ctx);
   const parts: string[] = [];
-  for (const k of Object.keys(m) as (keyof Modifiers)[]) {
+  for (const k of Object.keys(MOD_LABELS) as NumericModKey[]) {
     if (m[k] !== 1) {
       const reduction = Math.round((1 - m[k]) * 100);
       parts.push(`−${reduction}% ${MOD_LABELS[k]}`);
     }
   }
   if (iv.persistsYears && iv.persistsYears > 1) parts.push(`${iv.persistsYears}y`);
+  if (iv.rampSchedule) parts.push(`ramp ${iv.rampSchedule.length}y`);
   return parts.join(' · ');
 }
 
 function carryYears(id: InterventionId): number {
   return cell.value.persistEffects[id] ?? 0;
+}
+
+// For each gated intervention, compute the prospective cluster sizes given
+// current pending deploys + existing carry-over. Used to surface ⚠ when a
+// pending deploy on this cell would fall below the spatial threshold.
+const gateSizes = computed(() => {
+  const result: Partial<Record<InterventionId, Map<number, number>>> = {};
+  for (const iv of INTERVENTION_LIST) {
+    if (!iv.minContiguousCells) continue;
+    const active = new Set<number>();
+    for (let i = 0; i < store.grid.length; i++) {
+      const pending = store.pendingDeployments[i]?.has(iv.id);
+      const carry = (store.grid[i].persistEffects[iv.id] ?? 0) > 0;
+      if (pending || carry) active.add(i);
+    }
+    result[iv.id] = clusterSizes(active);
+  }
+  return result;
+});
+
+function gateStatus(iv: Intervention): { ok: boolean; size: number; need: number } | null {
+  if (!iv.minContiguousCells) return null;
+  const pending = deploys.value.has(iv.id);
+  const carry = carryYears(iv.id) > 0;
+  if (!pending && !carry) return null;
+  const size = gateSizes.value[iv.id]?.get(store.selectedCell) ?? 0;
+  return { ok: size >= iv.minContiguousCells, size, need: iv.minContiguousCells };
 }
 </script>
 
@@ -89,6 +124,13 @@ function carryYears(id: InterventionId): number {
           <small class="iv-mods">sim: {{ modEffects(iv) }}</small>
           <small>{{ iv.blurb }}</small>
           <small v-if="iv.effect.note" class="iv-note">⚠ {{ iv.effect.note }}</small>
+          <small v-if="gateStatus(iv) && !gateStatus(iv)!.ok" class="iv-gate-fail">
+            ⚠ no effect — need {{ gateStatus(iv)!.need - gateStatus(iv)!.size }} more contiguous cells
+            (cluster {{ gateStatus(iv)!.size }} of {{ gateStatus(iv)!.need }})
+          </small>
+          <small v-else-if="gateStatus(iv)?.ok" class="iv-gate-ok">
+            ✓ cluster {{ gateStatus(iv)!.size }} cells
+          </small>
           <small class="iv-cites">
             <a
               v-for="(c, i) in iv.citations"
@@ -130,6 +172,8 @@ h4 { margin: 12px 0 6px 0; font-size: 13px; color: var(--muted); text-transform:
 .iv-effect .active { color: #2a8; }
 .iv-mods { color: var(--muted); font-style: italic; }
 .iv-note { color: #c80; }
+.iv-gate-fail { color: #d44; font-weight: 500; }
+.iv-gate-ok { color: #2a8; }
 .iv-cites { margin-top: 2px; }
 .iv-cites a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
 .iv-cites a:hover { text-decoration: underline; }

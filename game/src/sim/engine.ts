@@ -1,14 +1,17 @@
-import { TICK, MOUSE, DEER, GRID_SIZE } from './params';
+import { TICK, MOUSE, DEER, LYME, GRID_SIZE } from './params';
 import type { CellState } from './cell';
 import { cloneCell, makeInitialCell } from './cell';
 import {
   INTERVENTIONS,
   emptyModifiers,
+  type ApplyContext,
+  type Intervention,
   type InterventionId,
   type Modifiers,
 } from './interventions';
 import { applyDispersal, type Grid } from './grid';
 import { updateMouseInfection, fracNewNymphInfected } from './infection';
+import { clusterSizes } from './clustering';
 
 export interface Deployments {
   // cellIndex -> set of interventions deployed THIS year
@@ -28,18 +31,49 @@ export function makeInitialGrid(): Grid {
   return g;
 }
 
-function modifiersFor(cell: CellState, deploys: Set<InterventionId> | undefined): Modifiers {
+// Per-intervention map of cellIndex -> cluster size for the current year.
+// Only populated for interventions with minContiguousCells set.
+type GateMap = Partial<Record<InterventionId, Map<number, number>>>;
+
+function isGated(iv: Intervention, cellIdx: number, gates: GateMap): boolean {
+  if (!iv.minContiguousCells) return false;
+  const size = gates[iv.id]?.get(cellIdx) ?? 0;
+  return size < iv.minContiguousCells;
+}
+
+function modifiersFor(
+  cell: CellState,
+  cellIdx: number,
+  deploys: Set<InterventionId> | undefined,
+  gates: GateMap,
+): Modifiers {
   const m = emptyModifiers();
   // Apply this year's fresh deployments.
   if (deploys) {
-    for (const id of deploys) INTERVENTIONS[id].apply(m);
+    for (const id of deploys) {
+      const iv = INTERVENTIONS[id];
+      if (isGated(iv, cellIdx, gates)) continue;
+      const ctx: ApplyContext = { consecutiveYears: cell.consecutiveYears[id] ?? 1 };
+      iv.apply(m, ctx);
+      if (iv.propertyScale) m.propertyScaleActive = true;
+    }
   }
   // Apply carry-over from prior years' multi-year interventions. Skip any
   // intervention that was also deployed fresh this year (already applied).
   for (const [id, years] of Object.entries(cell.persistEffects) as [InterventionId, number][]) {
     if (years > 0 && !deploys?.has(id)) {
-      INTERVENTIONS[id].apply(m);
+      const iv = INTERVENTIONS[id];
+      if (isGated(iv, cellIdx, gates)) continue;
+      // Carry-over runs at last-known ramp position (no further build-up
+      // without fresh deploys, but we don't reset to yr1 either).
+      const ctx: ApplyContext = { consecutiveYears: cell.consecutiveYears[id] ?? 1 };
+      iv.apply(m, ctx);
+      if (iv.propertyScale) m.propertyScaleActive = true;
     }
+  }
+  // Correlated-adherence proxy: cap combined human-transmission reduction.
+  if (m.humanTransmissionMul < LYME.humanTransmissionFloor) {
+    m.humanTransmissionMul = LYME.humanTransmissionFloor;
   }
   return m;
 }
@@ -48,8 +82,34 @@ function saturation(host: number, kHalf: number): number {
   return host / (kHalf + host);
 }
 
-function stepCell(cell: CellState, deploys: Set<InterventionId> | undefined): number {
-  const mods = modifiersFor(cell, deploys);
+// Adult ticks feeding on deer: Hill-3 with hard floor at 0.05 deer/ha.
+// Captures the Monhegan threshold — Ixodes adult reproduction collapses
+// below ~5 deer/km² (= 0.05/ha), not a smooth Hill-1 curve.
+function adultFeedSaturation(D: number): number {
+  if (D < 0.05) return 0;
+  const k = TICK.kDeerHalf;
+  const D3 = D * D * D;
+  return D3 / (k * k * k + D3);
+}
+
+function stepCell(
+  cell: CellState,
+  cellIdx: number,
+  deploys: Set<InterventionId> | undefined,
+  gates: GateMap,
+): number {
+  // Update consecutive-deploy counters BEFORE building modifiers so ramp
+  // schedules see the right year index (1 on first fresh deploy, etc.).
+  for (const iv of Object.values(INTERVENTIONS)) {
+    if (!iv.rampSchedule) continue;
+    if (deploys?.has(iv.id)) {
+      cell.consecutiveYears[iv.id] = (cell.consecutiveYears[iv.id] ?? 0) + 1;
+    } else {
+      delete cell.consecutiveYears[iv.id];
+    }
+  }
+
+  const mods = modifiersFor(cell, cellIdx, deploys, gates);
 
   // Multi-year persistence: refresh counter on fresh deploy, else decrement.
   for (const iv of Object.values(INTERVENTIONS)) {
@@ -70,24 +130,40 @@ function stepCell(cell: CellState, deploys: Set<InterventionId> | undefined): nu
   cell.Minf = Math.min(cell.Minf, cell.M);
   cell.D *= mods.deerDensityMul;
 
+  // 1b. Host logistic growth runs BEFORE tick/host interactions so larval
+  // feeding, mouse infection acquisition, and case generation all see the
+  // same mouse pool for the year. (Was previously between steps 5 and
+  // updateMouseInfection — mismatched M between fracNewNymphInfected and
+  // updateMouseInfection.)
+  cell.M = Math.max(0, cell.M + MOUSE.r * cell.M * (1 - cell.M / MOUSE.K));
+  cell.Minf = Math.min(cell.Minf, cell.M);
+  cell.D = Math.max(0, cell.D + DEER.r * cell.D * (1 - cell.D / DEER.K));
+
   // 2. Tick reproduction: eggs from adults need deer for blood meal.
-  const adultFeedSat = saturation(cell.D, TICK.kDeerHalf);
+  // Hard threshold near 0.05 deer/ha (Monhegan-style collapse) via Hill-3.
+  const adultFeedSat = adultFeedSaturation(cell.D);
+  // NOTE: larvaSurvivalMul is applied at larva->nymph only; applying it here
+  // would double-count tick-tube kill on the same cohort.
   const eggsToLarvae =
     cell.A * adultFeedSat * TICK.eggsPerAdult * TICK.sEggToLarva *
-    mods.tickSurvivalMul * mods.larvaSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * cell.hab;
 
-  // 3. Larva -> nymph: needs mouse availability.
+  // 3. Larva -> nymph: needs mouse availability. Tick-tube larva kill applies
+  // here (larvae die feeding on permethrin-treated mice). nymphSurvivalMul
+  // also lands here because the molted cohort is what becomes questing nymphs.
   const mouseSat = saturation(cell.M, TICK.kMouseHalf);
   const larvaToNymph = cell.L * TICK.sLarvaToNymph * mouseSat *
-    mods.tickSurvivalMul * mods.nymphSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * mods.larvaSurvivalMul * mods.nymphSurvivalMul * cell.hab;
 
   // Fraction of new nymphs that are infected (from feeding on infected mice).
-  const newNymphInfFrac = fracNewNymphInfected(cell);
+  const newNymphInfFrac = fracNewNymphInfected(cell, mods.mouseInfectivityMul);
 
-  // 4. Nymph -> adult: also needs hosts (mice + deer combined).
+  // 4. Nymph -> adult: also needs hosts (mice + deer combined). adultSurvivalMul
+  // applies here so fourPoster (deer-applied permethrin) also kills nymphs
+  // taking their blood meal on treated deer, not only standing overwintered adults.
   const nymphFeedSat = 0.5 * mouseSat + 0.5 * adultFeedSat;
   const nymphToAdult = cell.N * TICK.sNymphToAdult * nymphFeedSat *
-    mods.tickSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * mods.adultSurvivalMul * cell.hab;
   // Infected nymphs that advance carry infection forward.
   const nymphInfRatio = cell.N > 0 ? cell.Ninf / cell.N : 0;
 
@@ -106,16 +182,15 @@ function stepCell(cell: CellState, deploys: Set<InterventionId> | undefined): nu
   const newNinf = newN * newNymphInfFrac; // freshly molted nymphs carry infection from larval feeding
   const newAinf = adultSurv * adultInfRatio + nymphToAdult * nymphInfRatio;
 
-  // 6. Mouse + deer logistic.
-  cell.M = Math.max(0, cell.M + MOUSE.r * cell.M * (1 - cell.M / MOUSE.K));
-  // Lose proportional infected mice if total declines.
-  cell.Minf = Math.min(cell.Minf, cell.M);
-  cell.D = Math.max(0, cell.D + DEER.r * cell.D * (1 - cell.D / DEER.K));
-
-  // Update Lyme in mice + accrue human cases (uses NEW nymph counts? No — uses
-  // last year's nymph pool for exposure; we update mouse infection BEFORE
-  // overwriting N to keep this clear.)
-  const cases = updateMouseInfection(cell, mods.humanTransmissionMul);
+  // 6. Update Lyme in mice + accrue human cases. Uses last year's nymph pool
+  // (cell.N/Ninf, pre-overwrite) for human exposure; mouse growth already ran
+  // in step 1b so M/Minf are this year's pool.
+  const cases = updateMouseInfection(
+    cell,
+    mods.humanTransmissionMul,
+    mods.propertyScaleActive,
+    mods.mouseAcquisitionMul,
+  );
 
   // Commit new tick stages.
   cell.L = newL;
@@ -134,10 +209,25 @@ export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
   let total = 0;
   let spend = 0;
 
+  // Pre-compute cluster sizes for each gated intervention. Active cells =
+  // fresh deploy this year OR carry-over from prior years.
+  const gates: GateMap = {};
+  for (const iv of Object.values(INTERVENTIONS)) {
+    if (!iv.minContiguousCells) continue;
+    const active = new Set<number>();
+    for (let i = 0; i < next.length; i++) {
+      if (deployments[i]?.has(iv.id) || (next[i].persistEffects[iv.id] ?? 0) > 0) {
+        active.add(i);
+      }
+    }
+    gates[iv.id] = clusterSizes(active);
+  }
+
   for (let i = 0; i < next.length; i++) {
     const deploys = deployments[i];
+    // Charge cost on fresh deploy regardless of gate — player learns the rule.
     if (deploys) for (const id of deploys) spend += INTERVENTIONS[id].cost;
-    const c = stepCell(next[i], deploys);
+    const c = stepCell(next[i], i, deploys, gates);
     casesByCell[i] = c;
     total += c;
   }

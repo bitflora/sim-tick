@@ -1,0 +1,12 @@
+TODO
+- Move the "Advance Year" controls to the upper right
+- Move the "Lyme cases over time" graph to just below the game grid
+- Track these critical stats over the course of the game:
+    - Number of ticks (current year)
+    - Number of infected ticks (current year)
+    - Number of infected humans (total)
+- add some randomness to the effectiveness of interventions.
+- simulate different habitats within each grid square
+- simulate weather. Are dry years worse for ticks?
+- creative mode where the user has full control over all variables including random factors
+- Are there any inflection points where interventions become less effective, or transmission dies out altogether? If so, implement that.

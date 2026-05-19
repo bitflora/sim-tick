@@ -11,7 +11,12 @@ import { LYME } from './params';
 //     engine.ts; here we only update *mouse* infection state + larval infections.
 // Human cases driven by infected-nymph density and humansPerCell.
 
-export function updateMouseInfection(cell: CellState, humanTransmissionMul: number): number {
+export function updateMouseInfection(
+  cell: CellState,
+  humanTransmissionMul: number,
+  propertyScaleActive: boolean,
+  mouseAcquisitionMul: number,
+): number {
   const N = cell.N;
   const Ninf = cell.Ninf;
   const M = cell.M;
@@ -22,24 +27,32 @@ export function updateMouseInfection(cell: CellState, humanTransmissionMul: numb
 
   // Susceptible mice get bitten by nymphs. Annual hazard:
   //   h = pNymphToMouse * bites * fracInfectedNymphs
-  const hazardMouse = LYME.pNymphToMouse * LYME.nymphBitesPerMouse * infFracN;
+  // mouseAcquisitionMul applies the RTV antibody block at the mouse→tick
+  // interface (anti-OspA neutralizes spirochetes in the feeding nymph).
+  const hazardMouse = LYME.pNymphToMouse * mouseAcquisitionMul * LYME.nymphBitesPerMouse * infFracN;
   const newInfFrac = 1 - Math.exp(-hazardMouse);
   const susceptible = M - cell.Minf;
   const newMouseInf = susceptible * newInfFrac;
   cell.Minf = Math.min(M, cell.Minf + newMouseInf);
 
-  // Human cases = humans * exposure * infected-nymph density * transmission prob.
-  const cases = LYME.humansPerCell * LYME.humanBitesPerNymph * Ninf * LYME.pNymphToHuman * humanTransmissionMul;
+  // Human cases: blend in-yard Ninf with an untreatable off-site background
+  // when property-scale interventions are active. See LYME.spilloverDiscount
+  // and the Tick Project / Hinckley RCT "QN ↓ but HC null" finding.
+  const effectiveNinf = propertyScaleActive
+    ? (1 - LYME.spilloverDiscount) * Ninf + LYME.spilloverDiscount * LYME.spilloverBaselineInfectedNymphs
+    : Ninf;
+  const cases = LYME.humansPerCell * LYME.humanBitesPerNymph * effectiveNinf * LYME.pNymphToHuman * humanTransmissionMul;
   return cases;
 }
 
 // Compute fraction of newly-molted nymphs that are infected, based on larval
 // feeding on mice this year. Called in engine when larvae advance to nymphs.
-export function fracNewNymphInfected(cell: CellState): number {
+export function fracNewNymphInfected(cell: CellState, mouseInfectivityMul: number): number {
   const M = cell.M;
   if (M <= 0) return 0;
   const infFracM = cell.Minf / M;
-  // Per-larva probability of acquiring infection.
-  const hazard = LYME.pMouseToLarva * LYME.larvaBitesPerMouse * infFracM;
+  // Per-larva probability of acquiring infection. mouseInfectivityMul applies
+  // the RTV antibody block at the mouse→larva interface.
+  const hazard = LYME.pMouseToLarva * mouseInfectivityMul * LYME.larvaBitesPerMouse * infFracM;
   return 1 - Math.exp(-hazard);
 }

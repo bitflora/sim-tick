@@ -16,7 +16,8 @@ export type InterventionId =
   | 'habitatMgmt'
   | 'messaging'
   | 'doxyProphylaxis'
-  | 'lymeVaccine';
+  | 'lymeVaccine'
+  | 'reservoirVaccine';
 
 export interface Modifiers {
   // Multipliers applied to within-cell parameters this year.
@@ -28,12 +29,22 @@ export interface Modifiers {
   deerDensityMul: number;        // deer cull
   habMul: number;                // habitat management
   humanTransmissionMul: number;  // messaging / PPE / doxy / vaccine
+  // Reservoir-targeted vaccine (RTV): mice raise anti-OspA antibodies that
+  // kill spirochetes at the tick-mouse interface. Acts on transmission at
+  // BOTH directions of the mouse-tick boundary.
+  mouseAcquisitionMul: number;   // scales LYME.pNymphToMouse (mice ← nymphs)
+  mouseInfectivityMul: number;   // scales LYME.pMouseToLarva (larvae ← mice)
+  // Set true when any property-scale intervention is active in this cell.
+  // Drives Ninf→cases spillover discount (see LYME.spilloverDiscount).
+  propertyScaleActive: boolean;
 }
 
 export function emptyModifiers(): Modifiers {
   return {
     tickSurvivalMul: 1, adultSurvivalMul: 1, nymphSurvivalMul: 1, larvaSurvivalMul: 1,
     mouseDensityMul: 1, deerDensityMul: 1, habMul: 1, humanTransmissionMul: 1,
+    mouseAcquisitionMul: 1, mouseInfectivityMul: 1,
+    propertyScaleActive: false,
   };
 }
 
@@ -61,14 +72,33 @@ export interface InterventionEffect {
   note?: string;              // caveats: single trial, HC null, etc.
 }
 
+export interface ApplyContext {
+  // Consecutive years (including this one) the intervention has been deployed
+  // in this cell. 1 = first year. Consumed by interventions with rampSchedule.
+  consecutiveYears: number;
+}
+
 export interface Intervention {
   id: InterventionId;
   name: string;
   cost: number;                  // USD/cell/yr (or one-time for capex items)
   blurb: string;
   icon: string;                  // emoji glyph for grid overlay
-  apply(m: Modifiers): void;
+  apply(m: Modifiers, ctx: ApplyContext): void;
   persistsYears?: number;        // if >0, effect carries forward (engine handles)
+  // Optional multi-year build-up. Interventions with biology that needs
+  // sustained deployment (e.g. fourPoster) can read ctx.consecutiveYears in
+  // apply() to gate efficacy.
+  rampSchedule?: number[];
+  // Optional spatial gate. Effect zeroes out when the connected (4-neighbor)
+  // cluster of active cells (fresh deploy OR carry-over) is smaller than this
+  // threshold. Cost is still charged. Literature: deerFencing needs ≥15-acre
+  // exclosure; fourPoster needs station-density supporting ≥20 acres.
+  minContiguousCells?: number;
+  // Property-scale interventions (residential yard treatments) cut nymph
+  // density but not residents' off-property tick exposure. Engine flags the
+  // cell so cases use a spillover-discounted Ninf. See LYME.spilloverDiscount.
+  propertyScale?: boolean;
   effect: InterventionEffect;
   citations: Citation[];
 }
@@ -78,6 +108,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     id: 'acaricide', name: 'Acaricide broadcast', cost: 700, icon: '🧪',
     blurb: 'Bifenthrin / permethrin spray on lawn–woods ecotone.',
     apply: (m) => { m.tickSurvivalMul *= 0.30; },
+    propertyScale: true,
     effect: {
       metric: 'QN', medianPct: 70, rangePct: [50, 100],
       note: 'Hinckley RCT: 63% QN but null on human cases',
@@ -91,6 +122,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     id: 'tickTubes', name: 'Tick tubes (Damminix)', cost: 250, icon: '🏠',
     blurb: 'Permethrin-treated cotton nest material; kills ticks on mice.',
     apply: (m) => { m.larvaSurvivalMul *= 0.40; m.nymphSurvivalMul *= 0.55; },
+    propertyScale: true,
     effect: {
       metric: 'QN', medianPct: 50, rangePct: [20, 89],
       note: 'Original MA: 89%. Suburban replications often 20–28%.',
@@ -104,9 +136,10 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     id: 'baitBox', name: 'SELECT TCS bait boxes', cost: 350, icon: '📦',
     blurb: 'Fipronil-wick boxes treat mice & chipmunks; ~12 per lot.',
     apply: (m) => { m.larvaSurvivalMul *= 0.50; m.nymphSurvivalMul *= 0.50; },
+    propertyScale: true,
     effect: {
-      metric: 'QN', medianPct: 65, rangePct: [50, 84],
-      note: 'Tick Project: QN ↓~50% but null on human cases',
+      metric: 'QN', medianPct: 50, rangePct: [50, 84],
+      note: 'Tick Project mid-range (~50%); NJ suburban replications up to 84%. Null on human cases.',
     },
     citations: [
       { label: 'Schulze 2017 J Med Entomol', url: 'https://academic.oup.com/jme/article/54/4/1019/3070958' },
@@ -116,10 +149,21 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
   fourPoster: {
     id: 'fourPoster', name: '4-Poster deer stations', cost: 1200, icon: '🎯',
     blurb: 'Permethrin self-applicator on baited deer; multi-year build-up.',
-    apply: (m) => { m.adultSurvivalMul *= 0.30; },
+    // Ramps with consecutive deployment: Stafford 2017 (residential, yr1) only
+    // ~8% kill; Pound 2009 (area-wide, yr3-6) 60-91%. Schedule indexes by
+    // consecutive year, clamped to last entry. No carry-over: stop deploying
+    // and ticks rebound within a season.
+    apply: (m, ctx) => {
+      const schedule = [0.92, 0.60, 0.30];
+      const i = Math.min(Math.max(ctx.consecutiveYears, 1), schedule.length) - 1;
+      m.adultSurvivalMul *= schedule[i];
+    },
+    rampSchedule: [0.92, 0.60, 0.30],
+    minContiguousCells: 8, // ~20 acres; 1 ha/cell.
+    propertyScale: true,
     effect: {
       metric: 'QN', medianPct: 60, rangePct: [8, 91],
-      note: 'Stafford 2017 residential RCT: only 8%. Best after ≥3 seasons.',
+      note: 'Yr1 ~8% (Stafford 2017 residential); ramps to 70% by yr3+ (Pound area-wide).',
     },
     citations: [
       { label: 'Pound 2009 J Med Entomol', url: 'https://academic.oup.com/jipm/article/8/1/19/3978945' },
@@ -140,13 +184,14 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   deerFencing: {
-    id: 'deerFencing', name: '8-ft deer exclusion fencing', cost: 5000, icon: '🚧',
-    blurb: 'Physical fence; needs ≥15-acre exclosure to work. Multi-year capex.',
+    id: 'deerFencing', name: '8-ft deer exclusion fencing', cost: 15000, icon: '🚧',
+    blurb: 'Physical fence; needs ≥15-acre exclosure to work. One-time capex.',
     apply: (m) => { m.adultSurvivalMul *= 0.20; m.tickSurvivalMul *= 0.30; },
     persistsYears: 10,
+    minContiguousCells: 6, // ~15 acres; smaller exclosures fail empirically.
     effect: {
       metric: 'QN', medianPct: 85, rangePct: [74, 97],
-      note: 'Only at ≥15-acre scale; smaller exclosures fail.',
+      note: 'One-time capex ($10–25k/ha perimeter); ~10-yr durable. Only at ≥15-acre scale.',
     },
     citations: [
       { label: 'Daniels & Fish 1993', url: 'https://pubmed.ncbi.nlm.nih.gov/8271246/' },
@@ -182,13 +227,32 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
   doxyProphylaxis: {
     id: 'doxyProphylaxis', name: 'Post-bite doxycycline', cost: 200, icon: '💊',
     blurb: 'Single 200 mg dose within 72 h of attached tick. Clinical lever.',
-    apply: (m) => { m.humanTransmissionMul *= 0.13; },
+    // Nadelman 87% is per-bite efficacy in compliant trial cohort. Population-
+    // effective rate is much lower: bite must be recognized, tick removed
+    // <72h, and a prescription filled. Modeled coverage ~50% → ~35% pop kill.
+    apply: (m) => { m.humanTransmissionMul *= 0.65; },
     effect: {
-      metric: 'EM', medianPct: 87, rangePct: [25, 98],
-      note: '95% CI from Nadelman 2001 NEJM RCT (n=482).',
+      metric: 'EM', medianPct: 35, rangePct: [10, 70],
+      note: 'Per-bite efficacy 87% (Nadelman); pop-effective discounted for recognition / 72h window / Rx fill.',
     },
     citations: [
       { label: 'Nadelman 2001 NEJM', url: 'https://www.nejm.org/doi/full/10.1056/NEJM200107123450201' },
+    ],
+  },
+  reservoirVaccine: {
+    id: 'reservoirVaccine', name: 'Reservoir-targeted OspA bait', cost: 400, icon: '🐭',
+    blurb: 'Oral OspA in bait pellets; mice raise Ab that clears spirochetes in feeding ticks.',
+    // Tsao 2004 + Richer 2014: ~24% NIP reduction yr 1 (lab up to 100%).
+    // Symmetric block on both ends of the mouse-tick boundary: less mouse
+    // acquisition from infected nymphs AND less larval infection from mice.
+    apply: (m) => { m.mouseAcquisitionMul *= 0.76; m.mouseInfectivityMul *= 0.76; },
+    effect: {
+      metric: 'NIP', medianPct: 24, rangePct: [10, 41],
+      note: 'Pre-commercial; only covers Peromyscus — chipmunks/shrews/birds not vaccinated.',
+    },
+    citations: [
+      { label: 'Tsao 2004 PNAS', url: 'https://www.pnas.org/doi/10.1073/pnas.0405763102' },
+      { label: 'Richer 2014 J Infect Dis', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4176399/' },
     ],
   },
   lymeVaccine: {
@@ -197,8 +261,8 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     apply: (m) => { m.humanTransmissionMul *= 0.27; },
     persistsYears: 3,
     effect: {
-      metric: 'HC', medianPct: 73, rangePct: [73, 73],
-      note: 'VALOR phase 3 interim 2026; not yet licensed.',
+      metric: 'HC', medianPct: 73, rangePct: [50, 90],
+      note: 'VALOR phase 3 interim 2026; single ongoing trial → wide uncertainty band.',
     },
     citations: [
       { label: 'VALOR trial NCT05477524', url: 'https://clinicaltrials.gov/study/NCT05477524' },
