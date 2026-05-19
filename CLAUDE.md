@@ -39,6 +39,16 @@ Compartmental model of *Ixodes scapularis* + *Borrelia burgdorferi* with explici
 - `store/game.ts` — Pinia store. `pendingDeployments` is a per-cell `Set<InterventionId>` accumulated during a year; `advance()` calls `advanceYear`, pushes a `YearRecord`, and clears pending. Budget enforcement is in the `overBudget` getter — `advance()` is a no-op when over budget or `gameOver`.
 - `components/` — `GridView`, `CellInspector`, `BudgetBar`, `HistoryChart`, `YearControls`. All read from the store.
 
+### UI pane names (for communication)
+
+When discussing the running app, refer to the on-screen regions by these names:
+
+- **YearBar** — top header strip: title + `YearControls` (year counter, Advance Year button).
+- **BudgetBar** — annual budget meter below the header (`BudgetBar.vue`).
+- **Map** — 10×10 grid, upper-left of main row (`GridView.vue`).
+- **History** — time-series chart below Map (`HistoryChart.vue`).
+- **Inspector** — right sidebar, per-cell detail + intervention picker (`CellInspector.vue`).
+
 ### Tests
 
 Vitest specs live next to the code under `__tests__/` (e.g. `game/src/sim/__tests__/engine.spec.ts`). Vitest is configured in `vite.config.ts` with `environment: 'node'` and `globals: true` — no separate `vitest.config`.
