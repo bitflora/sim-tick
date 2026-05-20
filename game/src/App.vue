@@ -9,7 +9,7 @@ import HistoryChart from './components/HistoryChart.vue';
 <template>
   <div class="app">
     <header>
-      <h1>Tick Mitigation <small>— Lyme disease across a 10×10 ecosystem</small></h1>
+      <h1>Sim Tick <small>— Eradicate Lyme disease</small></h1>
       <YearControls />
     </header>
     <BudgetBar />
