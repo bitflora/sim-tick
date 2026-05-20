@@ -76,7 +76,19 @@ export const LYME = {
 export const DISPERSAL = {
   tickAdultFrac: 0.02,           // adults riding deer.
   mouseFrac: 0.05,
-  deerMixFrac: 0.20,             // toward 4-neighbor mean.
+  // Habitat-weighted local drift. Webb et al. 2010 GPS-collar telemetry:
+  // mean 95% annual home range ~900–1,000 ha. At HECTARES_PER_CELL=259 that
+  // spans ~3–4 cells, so a sizeable fraction leaves each cell per year.
+  deerMixFrac: 0.40,
+  // Rare long-range jumps: yearling buck dispersal (median 5.77 km, range
+  // 1.3–68.3 km, Long et al. PMC9608933) + rut excursions. Small share,
+  // habitat-weighted global redistribution — captures the connectivity
+  // → pathogen-spread mechanism (Landscape Ecology 2025, CDC EID 2019).
+  deerJumpFrac: 0.015,
+  // Fall rut pulse: extra deer mixing pass between host adjustments and
+  // year-end dispersal. Aligns spatial mixing of deer (and thus adult-tick
+  // blood meals) with the autumn rut, when adult I. scapularis quest.
+  deerRutFrac: 0.10,
 };
 
 // --- Initial state ----------------------------------------------------------

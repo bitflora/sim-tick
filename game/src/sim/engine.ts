@@ -1,4 +1,4 @@
-import { TICK, MOUSE, DEER, LYME, GRID_SIZE } from './params';
+import { TICK, MOUSE, DEER, LYME, GRID_SIZE, DISPERSAL } from './params';
 import type { CellState } from './cell';
 import { cloneCell, makeInitialCell } from './cell';
 import {
@@ -9,7 +9,7 @@ import {
   type InterventionId,
   type Modifiers,
 } from './interventions';
-import { applyDispersal, type Grid } from './grid';
+import { applyDispersal, applyDeerHabitatDrift, type Grid } from './grid';
 import { updateMouseInfection, fracNewNymphInfected } from './infection';
 import { clusterSizes } from './clustering';
 
@@ -231,6 +231,10 @@ export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
     casesByCell[i] = c;
     total += c;
   }
+
+  // Fall rut pulse: extra deer-only mixing before year-end dispersal. Aligns
+  // deer redistribution with autumn rut, when adult I. scapularis quest.
+  applyDeerHabitatDrift(next, DISPERSAL.deerRutFrac);
 
   applyDispersal(next);
 

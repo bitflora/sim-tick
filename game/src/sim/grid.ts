@@ -36,16 +36,60 @@ function disperseField(grid: Grid, get: (c: CellState) => number, set: (c: CellS
   for (let i = 0; i < grid.length; i++) set(grid[i], before[i] + delta[i]);
 }
 
+// Habitat-weighted local drift for deer. Mass-conserving within the grid
+// (no off-map sink): deer leaving cell i are split across in-bounds 4-neighbors
+// in proportion to neighbor habitat. Matches yarding + edge-selection
+// behavior — deer drift toward higher-habitat cells rather than smoothing
+// uniformly toward the neighbor mean.
+export function applyDeerHabitatDrift(grid: Grid, frac: number) {
+  const D = grid.map((c) => c.D);
+  const delta = new Array(grid.length).fill(0);
+  for (let i = 0; i < grid.length; i++) {
+    const out = D[i] * frac;
+    if (out === 0) continue;
+    const ns = neighbors(i);
+    let W = 0;
+    for (const n of ns) W += grid[n].hab;
+    delta[i] -= out;
+    if (W > 0) {
+      for (const n of ns) delta[n] += out * (grid[n].hab / W);
+    } else {
+      // All neighbors zero-habitat: fall back to uniform split (still in-bounds).
+      const share = out / ns.length;
+      for (const n of ns) delta[n] += share;
+    }
+  }
+  for (let i = 0; i < grid.length; i++) grid[i].D = D[i] + delta[i];
+}
+
+// Long-range deer jumps: a small share of each cell's deer enter a global
+// pool, then redistribute across the whole grid weighted by habitat. Captures
+// yearling-buck natal dispersal (median 5.77 km) and rut excursions that
+// reseed adult-tick (and pathogen) supply into cells the local kernel
+// never reaches.
+export function applyDeerLongRangeJumps(grid: Grid, frac: number) {
+  let pool = 0;
+  let habTotal = 0;
+  for (const c of grid) {
+    pool += c.D * frac;
+    habTotal += c.hab;
+  }
+  if (pool === 0) return;
+  for (const c of grid) c.D *= 1 - frac;
+  if (habTotal > 0) {
+    for (const c of grid) c.D += pool * (c.hab / habTotal);
+  } else {
+    const share = pool / grid.length;
+    for (const c of grid) c.D += share;
+  }
+}
+
 export function applyDispersal(grid: Grid) {
   // Adults (with proportional infected fraction).
   disperseField(grid, (c) => c.A, (c, v) => { const ratio = c.A > 0 ? c.Ainf / c.A : 0; c.A = v; c.Ainf = v * ratio; }, DISPERSAL.tickAdultFrac);
   // Mice.
   disperseField(grid, (c) => c.M, (c, v) => { const ratio = c.M > 0 ? c.Minf / c.M : 0; c.M = v; c.Minf = v * ratio; }, DISPERSAL.mouseFrac);
-  // Deer: pull each cell toward 4-neighbor mean.
-  const before = grid.map((c) => c.D);
-  for (let i = 0; i < grid.length; i++) {
-    const ns = neighbors(i);
-    const mean = ns.reduce((s, n) => s + before[n], 0) / ns.length;
-    grid[i].D = before[i] + DISPERSAL.deerMixFrac * (mean - before[i]);
-  }
+  // Deer: habitat-weighted local drift, then rare long-range jumps.
+  applyDeerHabitatDrift(grid, DISPERSAL.deerMixFrac);
+  applyDeerLongRangeJumps(grid, DISPERSAL.deerJumpFrac);
 }
