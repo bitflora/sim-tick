@@ -9,6 +9,7 @@ const store = useGameStore();
 interface AnimIcon {
   key: string;
   glyph: string;
+  kind: FlowKind;
   fromX: number;
   fromY: number;
   toX: number;
@@ -32,7 +33,7 @@ const THRESHOLD: Record<FlowKind, number> = {
   mouse: 4,
   deer: 0.04,
 };
-const MAX_PER_FLOW = 8;
+const MAX_PER_FLOW = 2;
 const GLYPH: Record<FlowKind, string> = {
   tickA: '🦟',
   mouse: '🐭',
@@ -71,6 +72,7 @@ function spawn() {
       newIcons.push({
         key: `i${keyN++}`,
         glyph: GLYPH[f.kind],
+        kind: f.kind,
         fromX: offX + fx + jitterX,
         fromY: offY + fy + jitterY,
         toX: offX + tx + jitterX,
@@ -116,19 +118,8 @@ onUnmounted(() => {
     <span
       v-for="ic in icons"
       :key="ic.key"
-      class="fly"
-      :style="{
-        left: ic.fromX + 'px',
-        top: ic.fromY + 'px',
-        '--tx': (ic.toX - ic.fromX) + 'px',
-        '--ty': (ic.toY - ic.fromY) + 'px',
-        animationDelay: ic.delayMs + 'ms',
-      }"
-    >▢</span>
-    <span
-      v-for="ic in icons"
-      :key="ic.key + 'g'"
       class="glyph-fly"
+      :class="'kind-' + ic.kind"
       :style="{
         left: ic.fromX + 'px',
         top: ic.fromY + 'px',
@@ -153,7 +144,6 @@ onUnmounted(() => {
   pointer-events: none;
   overflow: hidden;
 }
-.fly { display: none; }
 .glyph-fly {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -163,11 +153,28 @@ onUnmounted(() => {
   animation: drift 5000ms cubic-bezier(0.4, 0.0, 0.6, 1.0) forwards;
   opacity: 0;
 }
+.glyph-fly.kind-deer {
+  font-size: 22px;
+  animation: hop 5000ms linear forwards;
+}
 @keyframes drift {
   0%   { transform: translate(-50%, -50%) translate(0, 0); opacity: 0; }
   10%  { opacity: 1; }
   90%  { opacity: 1; }
   100% { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)); opacity: 0; }
+}
+@keyframes hop {
+  0%    { transform: translate(-50%, -50%) translate(0, 0); opacity: 0; }
+  8%    { opacity: 1; }
+  12.5% { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.125), calc(var(--ty) * 0.125 - 14px)); }
+  25%   { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.25),  calc(var(--ty) * 0.25)); }
+  37.5% { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.375), calc(var(--ty) * 0.375 - 14px)); }
+  50%   { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.5),   calc(var(--ty) * 0.5)); }
+  62.5% { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.625), calc(var(--ty) * 0.625 - 14px)); }
+  75%   { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.75),  calc(var(--ty) * 0.75)); }
+  87.5% { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.875), calc(var(--ty) * 0.875 - 14px)); }
+  92%   { opacity: 1; }
+  100%  { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)); opacity: 0; }
 }
 .skull {
   position: absolute;

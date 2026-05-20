@@ -92,7 +92,7 @@ export function applyDeerHabitatDrift(grid: Grid, frac: number, flows?: Flow[]) 
 // yearling-buck natal dispersal (median 5.77 km) and rut excursions that
 // reseed adult-tick (and pathogen) supply into cells the local kernel
 // never reaches.
-export function applyDeerLongRangeJumps(grid: Grid, frac: number) {
+export function applyDeerLongRangeJumps(grid: Grid, frac: number, flows?: Flow[]) {
   let pool = 0;
   let habTotal = 0;
   for (const c of grid) {
@@ -100,12 +100,36 @@ export function applyDeerLongRangeJumps(grid: Grid, frac: number) {
     habTotal += c.hab;
   }
   if (pool === 0) return;
+  // Per-source outflux for sampled visualization (mass math is unchanged below).
+  const outflux = grid.map((c) => c.D * frac);
   for (const c of grid) c.D *= 1 - frac;
   if (habTotal > 0) {
     for (const c of grid) c.D += pool * (c.hab / habTotal);
   } else {
     const share = pool / grid.length;
     for (const c of grid) c.D += share;
+  }
+  // Sample one destination per source cell, weighted by destination habitat.
+  // This is for animation only — each emitted flow represents the source's
+  // total contribution to the global pool landing in one representative cell.
+  if (flows) {
+    for (let i = 0; i < grid.length; i++) {
+      const out = outflux[i];
+      if (out <= 0) continue;
+      let dst = -1;
+      if (habTotal > 0) {
+        let r = Math.random() * habTotal;
+        for (let j = 0; j < grid.length; j++) {
+          r -= grid[j].hab;
+          if (r <= 0) { dst = j; break; }
+        }
+        if (dst === -1) dst = grid.length - 1;
+      } else {
+        dst = Math.floor(Math.random() * grid.length);
+      }
+      if (dst === i) continue;
+      flows.push({ from: i, to: dst, kind: 'deer', amount: out });
+    }
   }
 }
 
@@ -116,6 +140,5 @@ export function applyDispersal(grid: Grid, flows?: Flow[]) {
   disperseField(grid, (c) => c.M, (c, v) => { const ratio = c.M > 0 ? c.Minf / c.M : 0; c.M = v; c.Minf = v * ratio; }, DISPERSAL.mouseFrac, flows, 'mouse');
   // Deer: habitat-weighted local drift, then rare long-range jumps.
   applyDeerHabitatDrift(grid, DISPERSAL.deerMixFrac, flows);
-  // Long-range jumps are global redistribution, not per-cell flows; skip in animation.
-  applyDeerLongRangeJumps(grid, DISPERSAL.deerJumpFrac);
+  applyDeerLongRangeJumps(grid, DISPERSAL.deerJumpFrac, flows);
 }
