@@ -5,7 +5,9 @@
 // Grid edge length (cells). Override at build/dev time with VITE_GRID_SIZE.
 const envGridSize = Number(import.meta.env.VITE_GRID_SIZE);
 export const GRID_SIZE = Number.isFinite(envGridSize) && envGridSize > 0 ? envGridSize : 5;
-export const HECTARES_PER_CELL = 1;
+// 1 sq mile = 640 acres ≈ 258.999 hectares. Per-hectare biological constants
+// below are unchanged; per-cell economic/population values scale with cell area.
+export const HECTARES_PER_CELL = 259;
 
 // --- Tick demography (annual survival fractions, not daily rates) -----------
 export const TICK = {
@@ -46,9 +48,9 @@ export const LYME = {
   larvaBitesPerMouse: 12.0,
   // Baseline vertical/co-feeding transmission (set 0 in v1).
   pVertical: 0,
-  // Human exposure. 1-ha residential cell, 0.2-0.5 ha lots ~ 2-5 households
-  // ~ 5-15 people. Was 5 (low); 10 is mid-range residential density.
-  humansPerCell: 10,
+  // Human exposure. 1 sq mi cell at suburban-edge density (~10 people/ha,
+  // mixed residential + woodland) ~ 2,600 residents.
+  humansPerCell: 2590,
   humanBitesPerNymph: 0.002,     // per nymph per year, encounter rate.
   pNymphToHuman: 0.03,           // ~3% per attached infected nymph (24h+ attachment avg).
   // Property-scale interventions (lawn-edge acaricide, tick tubes, bait boxes,

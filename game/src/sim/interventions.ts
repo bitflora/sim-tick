@@ -105,7 +105,7 @@ export interface Intervention {
 
 export const INTERVENTIONS: Record<InterventionId, Intervention> = {
   acaricide: {
-    id: 'acaricide', name: 'Acaricide broadcast', cost: 700, icon: '🧪',
+    id: 'acaricide', name: 'Acaricide broadcast', cost: 181_300, icon: '🧪',
     blurb: 'Bifenthrin / permethrin spray on lawn–woods ecotone.',
     apply: (m) => { m.tickSurvivalMul *= 0.30; },
     propertyScale: true,
@@ -119,7 +119,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   tickTubes: {
-    id: 'tickTubes', name: 'Tick tubes (Damminix)', cost: 250, icon: '🏠',
+    id: 'tickTubes', name: 'Tick tubes (Damminix)', cost: 64_750, icon: '🏠',
     blurb: 'Permethrin-treated cotton nest material; kills ticks on mice.',
     apply: (m) => { m.larvaSurvivalMul *= 0.40; m.nymphSurvivalMul *= 0.55; },
     propertyScale: true,
@@ -133,7 +133,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   baitBox: {
-    id: 'baitBox', name: 'SELECT TCS bait boxes', cost: 350, icon: '📦',
+    id: 'baitBox', name: 'SELECT TCS bait boxes', cost: 90_650, icon: '📦',
     blurb: 'Fipronil-wick boxes treat mice & chipmunks; ~12 per lot.',
     apply: (m) => { m.larvaSurvivalMul *= 0.50; m.nymphSurvivalMul *= 0.50; },
     propertyScale: true,
@@ -147,7 +147,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   fourPoster: {
-    id: 'fourPoster', name: '4-Poster deer stations', cost: 1200, icon: '🎯',
+    id: 'fourPoster', name: '4-Poster deer stations', cost: 310_800, icon: '🎯',
     blurb: 'Permethrin self-applicator on baited deer; multi-year build-up.',
     // Ramps with consecutive deployment: Stafford 2017 (residential, yr1) only
     // ~8% kill; Pound 2009 (area-wide, yr3-6) 60-91%. Schedule indexes by
@@ -159,7 +159,8 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
       m.adultSurvivalMul *= schedule[i];
     },
     rampSchedule: [0.92, 0.60, 0.30],
-    minContiguousCells: 8, // ~20 acres; 1 ha/cell.
+    // Gate retired: single 1-sq-mi cell (640 ac) trivially exceeds the
+    // ~20-ac station-density threshold.
     propertyScale: true,
     effect: {
       metric: 'QN', medianPct: 60, rangePct: [8, 91],
@@ -171,7 +172,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   deerCull: {
-    id: 'deerCull', name: 'Deer culling', cost: 2000, icon: '🦌',
+    id: 'deerCull', name: 'Deer culling', cost: 518_000, icon: '🦌',
     blurb: 'Sharpshoot / managed hunt. Halves deer this year.',
     apply: (m) => { m.deerDensityMul *= 0.50; },
     effect: {
@@ -184,14 +185,16 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   deerFencing: {
-    id: 'deerFencing', name: '8-ft deer exclusion fencing', cost: 15000, icon: '🚧',
-    blurb: 'Physical fence; needs ≥15-acre exclosure to work. One-time capex.',
+    id: 'deerFencing', name: '8-ft deer exclusion fencing', cost: 240_000, icon: '🚧',
+    blurb: 'Physical fence around 1 sq mi (~6.4 km perimeter). One-time capex.',
     apply: (m) => { m.adultSurvivalMul *= 0.20; m.tickSurvivalMul *= 0.30; },
     persistsYears: 10,
-    minContiguousCells: 6, // ~15 acres; smaller exclosures fail empirically.
+    // Gate retired: single 1-sq-mi cell (640 ac) trivially exceeds the
+    // ≥15-acre exclosure minimum. Cost scales with perimeter (~16× from
+    // 1-ha baseline), not area.
     effect: {
       metric: 'QN', medianPct: 85, rangePct: [74, 97],
-      note: 'One-time capex ($10–25k/ha perimeter); ~10-yr durable. Only at ≥15-acre scale.',
+      note: 'One-time capex (~$37/m perimeter ≈ $240k/sq-mi); ~10-yr durable.',
     },
     citations: [
       { label: 'Daniels & Fish 1993', url: 'https://pubmed.ncbi.nlm.nih.gov/8271246/' },
@@ -199,7 +202,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   habitatMgmt: {
-    id: 'habitatMgmt', name: 'Habitat management', cost: 150, icon: '🌿',
+    id: 'habitatMgmt', name: 'Habitat management', cost: 38_850, icon: '🌿',
     blurb: 'Leaf-litter removal, mowing, mulch barrier.',
     apply: (m) => { m.habMul *= 0.4; },
     persistsYears: 1,
@@ -212,7 +215,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   messaging: {
-    id: 'messaging', name: 'Messaging / PPE campaign', cost: 50, icon: '📣',
+    id: 'messaging', name: 'Messaging / PPE campaign', cost: 12_950, icon: '📣',
     blurb: 'Public outreach + repellent / treated-clothing subsidies.',
     apply: (m) => { m.humanTransmissionMul *= 0.80; },
     effect: {
@@ -225,7 +228,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   doxyProphylaxis: {
-    id: 'doxyProphylaxis', name: 'Post-bite doxycycline', cost: 200, icon: '💊',
+    id: 'doxyProphylaxis', name: 'Post-bite doxycycline', cost: 51_800, icon: '💊',
     blurb: 'Single 200 mg dose within 72 h of attached tick. Clinical lever.',
     // Nadelman 87% is per-bite efficacy in compliant trial cohort. Population-
     // effective rate is much lower: bite must be recognized, tick removed
@@ -240,7 +243,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   reservoirVaccine: {
-    id: 'reservoirVaccine', name: 'Reservoir-targeted OspA bait', cost: 400, icon: '🐭',
+    id: 'reservoirVaccine', name: 'Reservoir-targeted OspA bait', cost: 103_600, icon: '🐭',
     blurb: 'Oral OspA in bait pellets; mice raise Ab that clears spirochetes in feeding ticks.',
     // Tsao 2004 + Richer 2014: ~24% NIP reduction yr 1 (lab up to 100%).
     // Symmetric block on both ends of the mouse-tick boundary: less mouse
@@ -256,7 +259,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   lymeVaccine: {
-    id: 'lymeVaccine', name: 'Human Lyme vaccine (VLA15)', cost: 600, icon: '💉',
+    id: 'lymeVaccine', name: 'Human Lyme vaccine (VLA15)', cost: 155_400, icon: '💉',
     blurb: 'Pfizer/Valneva multivalent OspA, 3-dose primary + annual boost.',
     apply: (m) => { m.humanTransmissionMul *= 0.27; },
     persistsYears: 3,

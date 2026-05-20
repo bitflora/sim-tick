@@ -45,7 +45,7 @@ describe('engine', () => {
     const g = makeInitialGrid();
     const deploys: Deployments = { 0: new Set(['acaricide', 'messaging']) };
     const r = advanceYear(g, deploys);
-    expect(r.spend).toBe(700 + 50);
+    expect(r.spend).toBe(181_300 + 12_950);
   });
 
   it('A1: property-scale interventions show spillover-discounted case reduction', () => {
@@ -156,22 +156,20 @@ describe('engine', () => {
     expect(g[0].A).toBeLessThan(b[0].A * 0.6);
   });
 
-  it('A10: deerFencing on a single cell has no effect (cluster < 6)', () => {
-    // Single-cell deploy gets persistEffects bookkeeping but zero modifier.
+  it('deerFencing on a single cell now works (1 sq mi >> 15-ac threshold)', () => {
     let gFence = makeInitialGrid();
     let gBase = makeInitialGrid();
     const single: Deployments = { 0: new Set(['deerFencing']) };
     gFence = advanceYear(gFence, single).grid;
     gBase = advanceYear(gBase, {}).grid;
     expect(gFence[0].persistEffects.deerFencing).toBe(9);
-    // Adult count at cell 0 essentially identical to baseline (no kill).
-    expect(Math.abs(gFence[0].A - gBase[0].A)).toBeLessThan(0.5);
+    expect(gFence[0].A).toBeLessThan(gBase[0].A * 0.6);
   });
 
-  it('A10: deerFencing cost is still charged when gated', () => {
+  it('deerFencing cost is charged on deploy', () => {
     const g = makeInitialGrid();
     const r = advanceYear(g, { 0: new Set(['deerFencing']) });
-    expect(r.spend).toBe(15000);
+    expect(r.spend).toBe(240_000);
   });
 
   it('D5: combined messaging+doxy+vaccine clamped at humanTransmissionFloor', () => {
