@@ -151,13 +151,20 @@ function gateStatus(iv: Intervention): { ok: boolean; size: number; need: number
 </template>
 
 <style scoped>
-.inspector { min-width: 340px; max-width: 380px; }
+.inspector {
+  min-width: 560px;
+  max-width: 640px;
+  position: sticky;
+  top: 8px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 8px; font-size: 13px; }
 .stats b { color: var(--muted); font-weight: 500; }
 .carry { font-size: 11px; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
 .carry b { color: var(--accent); }
 h4 { margin: 12px 0 6px 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.iv-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.iv-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .iv { display: flex; align-items: flex-start; gap: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
 .iv:hover { border-color: var(--accent); }
 .iv input { margin-top: 3px; }
