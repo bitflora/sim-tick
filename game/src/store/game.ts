@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { advanceYear, makeInitialGrid, totalCost, type Deployments } from '../sim/engine';
-import { GRID_SIZE } from '../sim/params';
+import { GRID_SIZE, INIT } from '../sim/params';
 import type { InterventionId } from '../sim/interventions';
 import type { Grid } from '../sim/grid';
 
@@ -35,6 +35,12 @@ export const useGameStore = defineStore('game', {
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
     gridSize: () => GRID_SIZE,
+    tickPopulationFraction: (s): number => {
+      let total = 0;
+      for (const c of s.grid) total += c.L + c.N + c.A;
+      const baseline = (INIT.L + INIT.N + INIT.A) * s.grid.length;
+      return baseline > 0 ? Math.min(1, total / baseline) : 0;
+    },
   },
   actions: {
     selectCell(i: number) { this.selectedCell = i; },

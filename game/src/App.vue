@@ -4,6 +4,7 @@ import CellInspector from './components/CellInspector.vue';
 import BudgetBar from './components/BudgetBar.vue';
 import YearControls from './components/YearControls.vue';
 import HistoryChart from './components/HistoryChart.vue';
+import TickCrawlers from './components/TickCrawlers.vue';
 </script>
 
 <template>
@@ -20,6 +21,7 @@ import HistoryChart from './components/HistoryChart.vue';
       </div>
       <CellInspector />
     </div>
+    <TickCrawlers />
   </div>
 </template>
 
