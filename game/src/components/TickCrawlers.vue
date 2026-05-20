@@ -9,8 +9,19 @@ interface Crawler {
   x: number;
   y: number;
   heading: number;
+  targetHeading: number;
   speed: number;
   turnTimer: number;
+}
+
+// Max angular velocity (rad/s) — caps how fast a tick can pivot.
+const TURN_RATE = 2.2;
+
+function wrapAngle(a: number): number {
+  // Shortest signed delta into [-PI, PI].
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
 }
 
 const elRefs = ref<(HTMLElement | null)[]>([]);
@@ -20,10 +31,12 @@ const visibleCount = computed(() => Math.round(TOTAL * store.tickPopulationFract
 function rand(min: number, max: number) { return min + Math.random() * (max - min); }
 
 function makeCrawler(): Crawler {
+  const h = rand(0, Math.PI * 2);
   return {
     x: rand(0, window.innerWidth),
     y: rand(0, window.innerHeight),
-    heading: rand(0, Math.PI * 2),
+    heading: h,
+    targetHeading: h,
     speed: rand(8, 22),
     turnTimer: rand(0.5, 2.5),
   };
@@ -49,15 +62,19 @@ function frame(t: number) {
     const c = crawlers[i];
     c.turnTimer -= dt;
     if (c.turnTimer <= 0) {
-      c.heading += rand(-1.2, 1.2);
-      c.turnTimer = rand(0.4, 2.0);
+      c.targetHeading = c.heading + rand(-1.2, 1.2);
+      c.turnTimer = rand(0.6, 2.4);
     }
+    // Ease heading toward target at capped angular velocity.
+    const dh = wrapAngle(c.targetHeading - c.heading);
+    const step = Math.sign(dh) * Math.min(Math.abs(dh), TURN_RATE * dt);
+    c.heading += step;
     c.x += Math.cos(c.heading) * c.speed * dt;
     c.y += Math.sin(c.heading) * c.speed * dt;
-    if (c.x < 0) { c.x = 0; c.heading = Math.PI - c.heading; }
-    else if (c.x > viewW) { c.x = viewW; c.heading = Math.PI - c.heading; }
-    if (c.y < 0) { c.y = 0; c.heading = -c.heading; }
-    else if (c.y > viewH) { c.y = viewH; c.heading = -c.heading; }
+    if (c.x < 0) { c.x = 0; c.heading = Math.PI - c.heading; c.targetHeading = c.heading; }
+    else if (c.x > viewW) { c.x = viewW; c.heading = Math.PI - c.heading; c.targetHeading = c.heading; }
+    if (c.y < 0) { c.y = 0; c.heading = -c.heading; c.targetHeading = c.heading; }
+    else if (c.y > viewH) { c.y = viewH; c.heading = -c.heading; c.targetHeading = c.heading; }
     const el = els[i];
     if (el) {
       el.style.transform = `translate3d(${c.x}px, ${c.y}px, 0) rotate(${c.heading + Math.PI / 2}rad)`;
