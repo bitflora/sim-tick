@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { advanceYear, makeInitialGrid, totalCost, type Deployments } from '../sim/engine';
-import { ECON, GRID_SIZE } from '../sim/params';
+import { GRID_SIZE } from '../sim/params';
 import type { InterventionId } from '../sim/interventions';
 import type { Grid } from '../sim/grid';
 
@@ -19,7 +19,6 @@ interface State {
   history: YearRecord[];
   cumulativeCases: number;
   cumulativeSpend: number;
-  gameOver: boolean;
 }
 
 export const useGameStore = defineStore('game', {
@@ -32,11 +31,9 @@ export const useGameStore = defineStore('game', {
     history: [],
     cumulativeCases: 0,
     cumulativeSpend: 0,
-    gameOver: false,
   }),
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
-    yearsRemaining(): number { return ECON.gameYears - this.year; },
     gridSize: () => GRID_SIZE,
   },
   actions: {
@@ -51,7 +48,6 @@ export const useGameStore = defineStore('game', {
       delete this.pendingDeployments[cellIdx];
     },
     advance() {
-      if (this.gameOver) return;
       const r = advanceYear(this.grid, this.pendingDeployments);
       this.grid = r.grid;
       this.year += 1;
@@ -64,7 +60,6 @@ export const useGameStore = defineStore('game', {
       }
       this.lastDeployments = snapshot;
       this.pendingDeployments = {};
-      if (this.year >= ECON.gameYears) this.gameOver = true;
     },
     reset() {
       this.grid = makeInitialGrid();
@@ -75,7 +70,6 @@ export const useGameStore = defineStore('game', {
       this.history = [];
       this.cumulativeCases = 0;
       this.cumulativeSpend = 0;
-      this.gameOver = false;
     },
   },
 });

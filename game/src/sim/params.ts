@@ -77,11 +77,6 @@ export const DISPERSAL = {
   deerMixFrac: 0.20,             // toward 4-neighbor mean.
 };
 
-// --- Economy ----------------------------------------------------------------
-export const ECON = {
-  gameYears: 10,
-};
-
 // --- Initial state ----------------------------------------------------------
 export const INIT = {
   L: 400,
