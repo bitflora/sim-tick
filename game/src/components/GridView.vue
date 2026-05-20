@@ -5,6 +5,8 @@ import { GRID_SIZE, INIT } from '../sim/params';
 import { INTERVENTIONS, type InterventionId } from '../sim/interventions';
 import type { CellState } from '../sim/cell';
 
+interface PersistGlyph { id: InterventionId; opacity: number }
+
 const store = useGameStore();
 
 const INIT_TICK_TOTAL = INIT.L + INIT.N + INIT.A;
@@ -30,11 +32,29 @@ function pendingFor(i: number): InterventionId[] {
   return s ? Array.from(s) : [];
 }
 
-function fadedFor(i: number): InterventionId[] {
-  const last = store.lastDeployments[i];
-  if (!last) return [];
+function persistentFor(i: number): PersistGlyph[] {
+  const cell = store.grid[i];
   const pending = store.pendingDeployments[i];
-  return Array.from(last).filter((id) => !pending || !pending.has(id));
+  const out: PersistGlyph[] = [];
+  for (const [id, yearsLeft] of Object.entries(cell.persistEffects) as [InterventionId, number][]) {
+    if (yearsLeft <= 0) continue;
+    if (pending?.has(id)) continue;
+    const total = INTERVENTIONS[id].persistsYears ?? 1;
+    // yearsLeft is years AFTER this turn; +1 gives total active turns remaining
+    // including the current one. Fade linearly from ~0.9 (fresh) to ~0.15 (last).
+    const t = Math.min(1, (yearsLeft + 1) / total);
+    out.push({ id, opacity: 0.15 + 0.75 * t });
+  }
+  // One-shot interventions deployed last year, not persisting: show ghosted.
+  const last = store.lastDeployments[i];
+  if (last) {
+    for (const id of last) {
+      if (pending?.has(id)) continue;
+      if (cell.persistEffects[id]) continue;
+      out.push({ id, opacity: 0.35 });
+    }
+  }
+  return out;
 }
 
 function hasDeploy(i: number): boolean {
@@ -56,7 +76,12 @@ function hasDeploy(i: number): boolean {
         @click="store.selectCell(i)"
       >
         <div class="glyphs">
-          <span v-for="id in fadedFor(i)" :key="'p' + id" class="glyph faded">{{ INTERVENTIONS[id].icon }}</span>
+          <span
+            v-for="p in persistentFor(i)"
+            :key="'p' + p.id"
+            class="glyph faded"
+            :style="{ opacity: p.opacity }"
+          >{{ INTERVENTIONS[p.id].icon }}</span>
           <span v-for="id in pendingFor(i)" :key="'n' + id" class="glyph">{{ INTERVENTIONS[id].icon }}</span>
         </div>
       </div>
@@ -66,7 +91,7 @@ function hasDeploy(i: number): boolean {
       <span class="sw" style="background: rgb(255,255,60)" /> mid
       <span class="sw" style="background: rgb(255,0,60)" /> high
       <span class="deploy-marker" /> deployment planned
-      <span class="glyph-marker"><span class="glyph">🧪</span><span class="glyph faded">🌿</span></span> pending / prior year
+      <span class="glyph-marker"><span class="glyph">🧪</span><span class="glyph faded">🚧</span></span> pending / active
     </div>
   </div>
 </template>
