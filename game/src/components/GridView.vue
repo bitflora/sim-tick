@@ -4,6 +4,7 @@ import { useGameStore } from '../store/game';
 import { GRID_SIZE, INIT } from '../sim/params';
 import { INTERVENTIONS, type InterventionId } from '../sim/interventions';
 import type { CellState } from '../sim/cell';
+import GridAnimationOverlay from './GridAnimationOverlay.vue';
 
 interface PersistGlyph { id: InterventionId; opacity: number }
 
@@ -65,6 +66,7 @@ function hasDeploy(i: number): boolean {
 <template>
   <div class="grid-wrap panel">
     <h3>Ecosystem grid <small>— ↘ gradient: total ticks → infected nymphs</small></h3>
+    <div class="grid-stack">
     <div class="grid" :style="{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(64px, 1fr))` }">
       <div
         v-for="(c, i) in store.grid"
@@ -86,6 +88,8 @@ function hasDeploy(i: number): boolean {
         </div>
       </div>
     </div>
+    <GridAnimationOverlay />
+    </div>
     <div class="legend">
       <span class="sw" style="background: rgb(0,255,60)" /> low
       <span class="sw" style="background: rgb(255,255,60)" /> mid
@@ -98,6 +102,7 @@ function hasDeploy(i: number): boolean {
 
 <style scoped>
 .grid-wrap { flex: 1 1 auto; min-width: 0; }
+.grid-stack { position: relative; }
 .grid {
   display: grid; gap: 2px; padding: 4px; background: var(--border); border-radius: 4px;
   width: 100%;

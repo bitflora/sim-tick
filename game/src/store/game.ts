@@ -2,7 +2,9 @@ import { defineStore } from 'pinia';
 import { advanceYear, makeInitialGrid, totalCost, type Deployments } from '../sim/engine';
 import { GRID_SIZE, INIT } from '../sim/params';
 import type { InterventionId } from '../sim/interventions';
-import type { Grid } from '../sim/grid';
+import type { Grid, Flow } from '../sim/grid';
+
+export const ANIMATION_MS = 5000;
 
 interface YearRecord {
   year: number;
@@ -19,6 +21,10 @@ interface State {
   history: YearRecord[];
   cumulativeCases: number;
   cumulativeSpend: number;
+  lastFlows: Flow[];
+  lastTickDeltas: number[];
+  animating: boolean;
+  animationToken: number;
 }
 
 export const useGameStore = defineStore('game', {
@@ -31,6 +37,10 @@ export const useGameStore = defineStore('game', {
     history: [],
     cumulativeCases: 0,
     cumulativeSpend: 0,
+    lastFlows: [],
+    lastTickDeltas: [],
+    animating: false,
+    animationToken: 0,
   }),
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
@@ -54,6 +64,7 @@ export const useGameStore = defineStore('game', {
       delete this.pendingDeployments[cellIdx];
     },
     advance() {
+      if (this.animating) return;
       const r = advanceYear(this.grid, this.pendingDeployments);
       this.grid = r.grid;
       this.year += 1;
@@ -66,6 +77,14 @@ export const useGameStore = defineStore('game', {
       }
       this.lastDeployments = snapshot;
       this.pendingDeployments = {};
+      this.lastFlows = r.flows;
+      this.lastTickDeltas = r.tickDeltaByCell;
+      this.animating = true;
+      this.animationToken += 1;
+      const token = this.animationToken;
+      setTimeout(() => {
+        if (this.animationToken === token) this.animating = false;
+      }, ANIMATION_MS);
     },
     reset() {
       this.grid = makeInitialGrid();
@@ -76,6 +95,10 @@ export const useGameStore = defineStore('game', {
       this.history = [];
       this.cumulativeCases = 0;
       this.cumulativeSpend = 0;
+      this.lastFlows = [];
+      this.lastTickDeltas = [];
+      this.animating = false;
+      this.animationToken += 1;
     },
   },
 });

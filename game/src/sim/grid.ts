@@ -3,6 +3,14 @@ import type { CellState } from './cell';
 
 export type Grid = CellState[];
 
+export type FlowKind = 'tickA' | 'mouse' | 'deer';
+export interface Flow {
+  from: number;
+  to: number;
+  kind: FlowKind;
+  amount: number;
+}
+
 export function idx(r: number, c: number): number {
   return r * GRID_SIZE + c;
 }
@@ -23,7 +31,14 @@ export function neighbors(i: number): number[] {
 
 // In-place dispersal: redistribute a fraction of each cell's quantity equally
 // among its 4 neighbors. Boundary cells lose flux off-map (sink).
-function disperseField(grid: Grid, get: (c: CellState) => number, set: (c: CellState, v: number) => void, frac: number) {
+function disperseField(
+  grid: Grid,
+  get: (c: CellState) => number,
+  set: (c: CellState, v: number) => void,
+  frac: number,
+  flows?: Flow[],
+  kind?: FlowKind,
+) {
   const before = grid.map(get);
   const delta = new Array(grid.length).fill(0);
   for (let i = 0; i < grid.length; i++) {
@@ -31,7 +46,10 @@ function disperseField(grid: Grid, get: (c: CellState) => number, set: (c: CellS
     // Outflux split into 4 directions regardless of edge (edges lose to sink).
     const share = out / 4;
     delta[i] -= out;
-    for (const n of neighbors(i)) delta[n] += share;
+    for (const n of neighbors(i)) {
+      delta[n] += share;
+      if (flows && kind && share > 0) flows.push({ from: i, to: n, kind, amount: share });
+    }
   }
   for (let i = 0; i < grid.length; i++) set(grid[i], before[i] + delta[i]);
 }
@@ -41,7 +59,7 @@ function disperseField(grid: Grid, get: (c: CellState) => number, set: (c: CellS
 // in proportion to neighbor habitat. Matches yarding + edge-selection
 // behavior — deer drift toward higher-habitat cells rather than smoothing
 // uniformly toward the neighbor mean.
-export function applyDeerHabitatDrift(grid: Grid, frac: number) {
+export function applyDeerHabitatDrift(grid: Grid, frac: number, flows?: Flow[]) {
   const D = grid.map((c) => c.D);
   const delta = new Array(grid.length).fill(0);
   for (let i = 0; i < grid.length; i++) {
@@ -52,11 +70,18 @@ export function applyDeerHabitatDrift(grid: Grid, frac: number) {
     for (const n of ns) W += grid[n].hab;
     delta[i] -= out;
     if (W > 0) {
-      for (const n of ns) delta[n] += out * (grid[n].hab / W);
+      for (const n of ns) {
+        const amt = out * (grid[n].hab / W);
+        delta[n] += amt;
+        if (flows && amt > 0) flows.push({ from: i, to: n, kind: 'deer', amount: amt });
+      }
     } else {
       // All neighbors zero-habitat: fall back to uniform split (still in-bounds).
       const share = out / ns.length;
-      for (const n of ns) delta[n] += share;
+      for (const n of ns) {
+        delta[n] += share;
+        if (flows && share > 0) flows.push({ from: i, to: n, kind: 'deer', amount: share });
+      }
     }
   }
   for (let i = 0; i < grid.length; i++) grid[i].D = D[i] + delta[i];
@@ -84,12 +109,13 @@ export function applyDeerLongRangeJumps(grid: Grid, frac: number) {
   }
 }
 
-export function applyDispersal(grid: Grid) {
+export function applyDispersal(grid: Grid, flows?: Flow[]) {
   // Adults (with proportional infected fraction).
-  disperseField(grid, (c) => c.A, (c, v) => { const ratio = c.A > 0 ? c.Ainf / c.A : 0; c.A = v; c.Ainf = v * ratio; }, DISPERSAL.tickAdultFrac);
+  disperseField(grid, (c) => c.A, (c, v) => { const ratio = c.A > 0 ? c.Ainf / c.A : 0; c.A = v; c.Ainf = v * ratio; }, DISPERSAL.tickAdultFrac, flows, 'tickA');
   // Mice.
-  disperseField(grid, (c) => c.M, (c, v) => { const ratio = c.M > 0 ? c.Minf / c.M : 0; c.M = v; c.Minf = v * ratio; }, DISPERSAL.mouseFrac);
+  disperseField(grid, (c) => c.M, (c, v) => { const ratio = c.M > 0 ? c.Minf / c.M : 0; c.M = v; c.Minf = v * ratio; }, DISPERSAL.mouseFrac, flows, 'mouse');
   // Deer: habitat-weighted local drift, then rare long-range jumps.
-  applyDeerHabitatDrift(grid, DISPERSAL.deerMixFrac);
+  applyDeerHabitatDrift(grid, DISPERSAL.deerMixFrac, flows);
+  // Long-range jumps are global redistribution, not per-cell flows; skip in animation.
   applyDeerLongRangeJumps(grid, DISPERSAL.deerJumpFrac);
 }

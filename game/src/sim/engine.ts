@@ -9,7 +9,7 @@ import {
   type InterventionId,
   type Modifiers,
 } from './interventions';
-import { applyDispersal, applyDeerHabitatDrift, type Grid } from './grid';
+import { applyDispersal, applyDeerHabitatDrift, type Grid, type Flow } from './grid';
 import { updateMouseInfection, fracNewNymphInfected } from './infection';
 import { clusterSizes } from './clustering';
 
@@ -23,6 +23,8 @@ export interface YearResult {
   casesThisYear: number;
   casesByCell: number[];
   spend: number;
+  flows: Flow[];
+  tickDeltaByCell: number[];
 }
 
 export function makeInitialGrid(): Grid {
@@ -206,6 +208,8 @@ function stepCell(
 export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
   const next: Grid = grid.map(cloneCell);
   const casesByCell: number[] = new Array(next.length).fill(0);
+  const preTickTotals = grid.map((c) => c.L + c.N + c.A);
+  const flows: Flow[] = [];
   let total = 0;
   let spend = 0;
 
@@ -234,11 +238,13 @@ export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
 
   // Fall rut pulse: extra deer-only mixing before year-end dispersal. Aligns
   // deer redistribution with autumn rut, when adult I. scapularis quest.
-  applyDeerHabitatDrift(next, DISPERSAL.deerRutFrac);
+  applyDeerHabitatDrift(next, DISPERSAL.deerRutFrac, flows);
 
-  applyDispersal(next);
+  applyDispersal(next, flows);
 
-  return { grid: next, casesThisYear: total, casesByCell, spend };
+  const tickDeltaByCell = next.map((c, i) => (c.L + c.N + c.A) - preTickTotals[i]);
+
+  return { grid: next, casesThisYear: total, casesByCell, spend, flows, tickDeltaByCell };
 }
 
 export function totalCost(deployments: Deployments): number {
