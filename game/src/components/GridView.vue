@@ -20,7 +20,8 @@ function rampColor(t: number): string {
 }
 
 function lymeEradicated(c: CellState): boolean {
-  return c.Linf + c.Ninf + c.Ainf + c.Minf === 0;
+  // Match displayed precision: tick stages render toFixed(0), mice toFixed(1).
+  return c.Linf < 0.5 && c.Ninf < 0.5 && c.Ainf < 0.5 && c.Minf < 0.05;
 }
 
 function gradientFor(c: CellState): string {

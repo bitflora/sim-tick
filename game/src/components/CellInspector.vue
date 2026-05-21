@@ -15,8 +15,10 @@ const store = useGameStore();
 const cell = computed(() => store.grid[store.selectedCell]);
 const deploys = computed(() => store.pendingDeployments[store.selectedCell] ?? new Set());
 
-function pct(num: number, denom: number): string {
-  if (denom <= 0) return '—';
+function pct(num: number, denom: number, denomEpsilon = 0.5): string {
+  // Suppress when denom rounds to displayed zero — otherwise tiny sub-integer
+  // populations produce misleading "11% infected of 0 adults" readouts.
+  if (denom < denomEpsilon) return '—';
   return (100 * num / denom).toFixed(1) + '%';
 }
 
@@ -91,7 +93,7 @@ function gateStatus(iv: Intervention): { ok: boolean; size: number; need: number
       <div><b>Larvae</b> {{ cell.L.toFixed(0) }} <small>({{ pct(cell.Linf, cell.L) }} inf)</small></div>
       <div><b>Nymphs</b> {{ cell.N.toFixed(0) }} <small>({{ pct(cell.Ninf, cell.N) }} inf)</small></div>
       <div><b>Adults</b> {{ cell.A.toFixed(0) }} <small>({{ pct(cell.Ainf, cell.A) }} inf)</small></div>
-      <div><b>Mice</b> {{ cell.M.toFixed(1) }}/ha <small>({{ pct(cell.Minf, cell.M) }} inf)</small></div>
+      <div><b>Mice</b> {{ cell.M.toFixed(1) }}/ha <small>({{ pct(cell.Minf, cell.M, 0.05) }} inf)</small></div>
       <div><b>Deer</b> {{ cell.D.toFixed(2) }}/ha</div>
       <div><b>Habitat</b> {{ cell.hab.toFixed(2) }}</div>
     </div>

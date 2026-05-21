@@ -287,6 +287,22 @@ export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): Ye
 
   applyDispersal(next, flows, fenced);
 
+  // Quantize populations to integers. Compartmental math runs continuously
+  // through the year (preserves rate-based dynamics); committed state is
+  // integer so the UI never shows "0 adults, 11% infected" from sub-integer
+  // residuals. Deer stays fractional — Hill-3 adult-feed saturation has a
+  // 0.05/ha floor and depends on sub-unit densities.
+  for (const cell of next) {
+    cell.L = Math.round(cell.L);
+    cell.N = Math.round(cell.N);
+    cell.A = Math.round(cell.A);
+    cell.M = Math.round(cell.M);
+    cell.Linf = Math.min(cell.L, Math.round(cell.Linf));
+    cell.Ninf = Math.min(cell.N, Math.round(cell.Ninf));
+    cell.Ainf = Math.min(cell.A, Math.round(cell.Ainf));
+    cell.Minf = Math.min(cell.M, Math.round(cell.Minf));
+  }
+
   const tickDeltaByCell = next.map((c, i) => (c.L + c.N + c.A) - preTickTotals[i]);
   const tickPctChangeByCell = tickDeltaByCell.map((d, i) =>
     preTickTotals[i] > 0 ? d / preTickTotals[i] : 0,
