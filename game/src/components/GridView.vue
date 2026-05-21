@@ -22,7 +22,12 @@ function rampColor(t: number): string {
   return `rgb(${r},${g},60)`;
 }
 
+function lymeEradicated(c: CellState): boolean {
+  return c.Linf + c.Ninf + c.Ainf + c.Minf === 0;
+}
+
 function gradientFor(c: CellState): string {
+  if (lymeEradicated(c)) return 'linear-gradient(135deg, #14532d, #14532d)';
   const tickT = (c.L + c.N + c.A) / INIT_TICK_TOTAL;
   const ninfT = c.Ninf / maxDIN.value;
   return `linear-gradient(135deg, ${rampColor(tickT)}, ${rampColor(ninfT)})`;
