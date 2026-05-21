@@ -119,7 +119,7 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     ],
   },
   tickTubes: {
-    id: 'tickTubes', name: 'Tick tubes (Damminix)', cost: 64_750, icon: '🏠',
+    id: 'tickTubes', name: 'Tick tubes (Damminix)', cost: 64_750, icon: '🪈',
     blurb: 'Permethrin-treated cotton nest material; kills ticks on mice.',
     apply: (m) => { m.larvaSurvivalMul *= 0.40; m.nymphSurvivalMul *= 0.55; },
     propertyScale: true,
