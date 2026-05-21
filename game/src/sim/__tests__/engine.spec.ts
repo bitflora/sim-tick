@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { advanceYear, makeInitialGrid, type Deployments } from '../engine';
+import { advanceYear, makeInitialGrid, makeRng, type Deployments } from '../engine';
 import { GRID_SIZE, INIT, LYME } from '../params';
 import { makeInitialCell } from '../cell';
 
@@ -212,6 +212,64 @@ describe('engine', () => {
     expect(minfRtv).toBeLessThan(minfBase);
     // Cumulative cases lower under RTV (yr2+ via less-infected nymphs).
     expect(casesR).toBeLessThan(casesB);
+  });
+
+  it('calibration: 20-yr no-intervention run holds nymph density within ±30% of INIT', () => {
+    // R0 ≈ 1 at endemic host densities (research/tick-growth.md §2). Verify
+    // behaviorally: total nymphs across grid stay bounded over a long run.
+    const rng = makeRng(42);
+    let g = makeInitialGrid();
+    const baselineN = INIT.N * GRID_SIZE * GRID_SIZE;
+    let minN = Infinity, maxN = -Infinity;
+    for (let y = 0; y < 20; y++) {
+      g = advanceYear(g, {}, rng).grid;
+      const totalN = g.reduce((s, c) => s + c.N, 0);
+      if (totalN < minN) minN = totalN;
+      if (totalN > maxN) maxN = totalN;
+    }
+    expect(minN).toBeGreaterThan(baselineN * 0.7);
+    expect(maxN).toBeLessThan(baselineN * 1.3);
+  });
+
+  it('calibration: stochastic noise produces per-cell year-to-year fluctuation', () => {
+    // Coefficient of variation of per-cell nymph counts across years should be
+    // in [0.05, 0.5] — i.e. visible but bounded. Lit CV 0.3–0.6 (research §6).
+    const rng = makeRng(7);
+    let g = makeInitialGrid();
+    const seriesByCell: number[][] = Array.from({ length: g.length }, () => []);
+    // Warm up a couple of years so transient initial dynamics settle.
+    for (let y = 0; y < 3; y++) g = advanceYear(g, {}, rng).grid;
+    for (let y = 0; y < 15; y++) {
+      g = advanceYear(g, {}, rng).grid;
+      g.forEach((c, i) => seriesByCell[i].push(c.N));
+    }
+    const cvs: number[] = [];
+    for (const s of seriesByCell) {
+      const mean = s.reduce((a, b) => a + b, 0) / s.length;
+      const variance = s.reduce((a, b) => a + (b - mean) ** 2, 0) / s.length;
+      cvs.push(Math.sqrt(variance) / mean);
+    }
+    const avgCv = cvs.reduce((a, b) => a + b, 0) / cvs.length;
+    expect(avgCv).toBeGreaterThan(0.05);
+    expect(avgCv).toBeLessThan(0.5);
+  });
+
+  it('calibration: Monhegan threshold — cell with zero deer collapses adult ticks', () => {
+    // With DEER.K=0.5/ha and kDeerHalf=0.15, a cell with D forced to ~0 should
+    // see its adult cohort decay toward zero within a few years (no reproduction,
+    // adult overwinter survival 0.40 compounding).
+    let g = makeInitialGrid();
+    g[0].D = 0;
+    g[0].M = 0; // also kill mice so dispersal can't reseed too fast
+    for (let y = 0; y < 5; y++) {
+      g = advanceYear(g, {}).grid;
+      g[0].D = 0; // hold deer at zero (override dispersal pull)
+    }
+    // Compare to baseline cell on a separate grid (not contaminated by
+    // dispersal from cell 0).
+    let baseline = makeInitialGrid();
+    for (let y = 0; y < 5; y++) baseline = advanceYear(baseline, {}).grid;
+    expect(g[0].A).toBeLessThan(baseline[0].A * 0.2);
   });
 
   it('A10: deerFencing on contiguous row of 6 cells clears gate', () => {

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { advanceYear, makeInitialGrid, totalCost, type Deployments } from '../sim/engine';
+import { advanceYear, makeInitialGrid, makeRng, totalCost, type Deployments, type Rng } from '../sim/engine';
 import { GRID_SIZE, INIT } from '../sim/params';
 import type { InterventionId } from '../sim/interventions';
 import type { Grid, Flow } from '../sim/grid';
@@ -25,6 +25,11 @@ interface State {
   lastTickDeltas: number[];
   animating: boolean;
   animationToken: number;
+  rng: Rng;
+}
+
+function freshRng(): Rng {
+  return makeRng((Date.now() ^ 0x9E3779B1) >>> 0);
 }
 
 export const useGameStore = defineStore('game', {
@@ -41,6 +46,7 @@ export const useGameStore = defineStore('game', {
     lastTickDeltas: [],
     animating: false,
     animationToken: 0,
+    rng: freshRng(),
   }),
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
@@ -65,7 +71,7 @@ export const useGameStore = defineStore('game', {
     },
     advance() {
       if (this.animating) return;
-      const r = advanceYear(this.grid, this.pendingDeployments);
+      const r = advanceYear(this.grid, this.pendingDeployments, this.rng);
       this.grid = r.grid;
       this.year += 1;
       this.cumulativeCases += r.casesThisYear;
@@ -99,6 +105,7 @@ export const useGameStore = defineStore('game', {
       this.lastTickDeltas = [];
       this.animating = false;
       this.animationToken += 1;
+      this.rng = freshRng();
     },
   },
 });

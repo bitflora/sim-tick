@@ -1,4 +1,4 @@
-import { TICK, MOUSE, DEER, LYME, GRID_SIZE, DISPERSAL } from './params';
+import { TICK, MOUSE, DEER, LYME, GRID_SIZE, DISPERSAL, STOCHASTIC } from './params';
 import type { CellState } from './cell';
 import { cloneCell, makeInitialCell } from './cell';
 import {
@@ -16,6 +16,30 @@ import { clusterSizes } from './clustering';
 export interface Deployments {
   // cellIndex -> set of interventions deployed THIS year
   [cellIndex: number]: Set<InterventionId>;
+}
+
+// Deterministic PRNG (mulberry32). Use `makeRng(seed)` to get a Rng for
+// `advanceYear`. Omit the rng arg to keep `advanceYear` fully deterministic
+// (used by most unit tests).
+export type Rng = () => number;
+export function makeRng(seed: number): Rng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const SIGMA2_HALF = (STOCHASTIC.stageSigma * STOCHASTIC.stageSigma) / 2;
+function lognormalNoise(rng: Rng): number {
+  // Box-Muller standard normal → mean-preserving lognormal.
+  const u1 = Math.max(rng(), 1e-12);
+  const u2 = rng();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return Math.exp(STOCHASTIC.stageSigma * z - SIGMA2_HALF);
 }
 
 export interface YearResult {
@@ -99,6 +123,7 @@ function stepCell(
   cellIdx: number,
   deploys: Set<InterventionId> | undefined,
   gates: GateMap,
+  rng: Rng | undefined,
 ): number {
   // Update consecutive-deploy counters BEFORE building modifiers so ramp
   // schedules see the right year index (1 on first fresh deploy, etc.).
@@ -148,14 +173,16 @@ function stepCell(
   // would double-count tick-tube kill on the same cohort.
   const eggsToLarvae =
     cell.A * adultFeedSat * TICK.eggsPerAdult * TICK.sEggToLarva *
-    mods.tickSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * cell.hab *
+    (rng ? lognormalNoise(rng) : 1);
 
   // 3. Larva -> nymph: needs mouse availability. Tick-tube larva kill applies
   // here (larvae die feeding on permethrin-treated mice). nymphSurvivalMul
   // also lands here because the molted cohort is what becomes questing nymphs.
   const mouseSat = saturation(cell.M, TICK.kMouseHalf);
   const larvaToNymph = cell.L * TICK.sLarvaToNymph * mouseSat *
-    mods.tickSurvivalMul * mods.larvaSurvivalMul * mods.nymphSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * mods.larvaSurvivalMul * mods.nymphSurvivalMul * cell.hab *
+    (rng ? lognormalNoise(rng) : 1);
 
   // Fraction of new nymphs that are infected (from feeding on infected mice).
   const newNymphInfFrac = fracNewNymphInfected(cell, mods.mouseInfectivityMul);
@@ -165,7 +192,8 @@ function stepCell(
   // taking their blood meal on treated deer, not only standing overwintered adults.
   const nymphFeedSat = 0.5 * mouseSat + 0.5 * adultFeedSat;
   const nymphToAdult = cell.N * TICK.sNymphToAdult * nymphFeedSat *
-    mods.tickSurvivalMul * mods.adultSurvivalMul * cell.hab;
+    mods.tickSurvivalMul * mods.adultSurvivalMul * cell.hab *
+    (rng ? lognormalNoise(rng) : 1);
   // Infected nymphs that advance carry infection forward.
   const nymphInfRatio = cell.N > 0 ? cell.Ninf / cell.N : 0;
 
@@ -205,7 +233,7 @@ function stepCell(
   return cases;
 }
 
-export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
+export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): YearResult {
   const next: Grid = grid.map(cloneCell);
   const casesByCell: number[] = new Array(next.length).fill(0);
   const preTickTotals = grid.map((c) => c.L + c.N + c.A);
@@ -231,7 +259,7 @@ export function advanceYear(grid: Grid, deployments: Deployments): YearResult {
     const deploys = deployments[i];
     // Charge cost on fresh deploy regardless of gate — player learns the rule.
     if (deploys) for (const id of deploys) spend += INTERVENTIONS[id].cost;
-    const c = stepCell(next[i], i, deploys, gates);
+    const c = stepCell(next[i], i, deploys, gates, rng);
     casesByCell[i] = c;
     total += c;
   }

@@ -17,11 +17,14 @@ export const TICK = {
   sNymphToAdult: 0.08,           // Lindsay / Ostfeld: 0.05–0.10. Mid-range.
   sAdultOverwinter: 0.40,        // Lindsay 0.30–0.50; research §5 recommended 0.4 (was 0.5).
   // Host saturation (Beverton-Holt style): survival scales as host/(K_half + host).
-  kMouseHalf: 8,                 // mice/ha for half-max larval/nymphal survival.
-  // deer/ha for half-max adult feeding under Hill-3. Retuned from 1.5 (Hill-1)
-  // to preserve baseline ~0.75 saturation at D=5/ha while giving sharp
-  // threshold collapse near 0.05/ha (Monhegan effect). See engine.adultFeedSaturation.
-  kDeerHalf: 3.5,
+  // mice/ha for half-max larval/nymphal survival. Tuned so closed-form R₀ ≈ 1
+  // at endemic host equilibria (M=50, D=0.5): μ_M = 50/59 = 0.847, μ_NH = 0.91;
+  // R₀ = f·sE·sL·sN·μ_D·μ_M·μ_NH/(1−sA) ≈ 1.00. See research/tick-growth.md §2.
+  kMouseHalf: 9,
+  // deer/ha for half-max adult feeding under Hill-3. Rescaled with realistic
+  // DEER.K=0.5/ha: at D=0.5, μ_D = 0.974; at D=0.15 (k), μ_D = 0.5; sharp
+  // collapse below k. Hard floor at 0.05/ha (Monhegan) still applies.
+  kDeerHalf: 0.15,
 };
 
 // --- Hosts ------------------------------------------------------------------
@@ -32,8 +35,12 @@ export const MOUSE = {
 };
 export const DEER = {
   r: 0.25,                       // slow growth, Odocoileus virginianus.
-  K: 8,                          // suburban-edge density.
-  init: 5,
+  // Suburban-edge carrying capacity. White-tailed deer in oak-hickory forest:
+  // 10–30/km² (= 0.1–0.3/ha); severe suburban overpopulation tops ~60/km²
+  // (0.6/ha). Stafford & Williams 2017 + research/tick-growth.md §7.
+  // (Was 8/ha — biologically implausible, 100× too high.)
+  K: 0.5,
+  init: 0.3,
 };
 
 // --- Lyme transmission ------------------------------------------------------
@@ -61,7 +68,7 @@ export const LYME = {
   // residents are a weighted average of in-yard Ninf and an untreatable
   // off-site background reservoir. spilloverDiscount = weight on background.
   spilloverDiscount: 0.5,
-  spilloverBaselineInfectedNymphs: 40, // = INIT.N * INIT.fracNymphInf (endemic background)
+  spilloverBaselineInfectedNymphs: 100, // = INIT.N * INIT.fracNymphInf (endemic background)
   // Combined human-transmission multiplier (messaging × doxy × vaccine) is
   // clamped so stacking can't deliver >80% reduction. Real-world co-deployment
   // has correlated adherence (vaccinated people don't also take post-bite doxy,
@@ -91,10 +98,23 @@ export const DISPERSAL = {
   deerRutFrac: 0.10,
 };
 
+// --- Stochasticity ----------------------------------------------------------
+// Per-cell, per-stage lognormal multiplier on tick stage transitions to match
+// the literature CV of 0.3–0.6 in nymph counts (research/tick-growth.md §6).
+// Applied as exp(σ·Z − σ²/2) so the multiplier has mean 1 (no long-run bias).
+export const STOCHASTIC = {
+  stageSigma: 0.2,
+};
+
 // --- Initial state ----------------------------------------------------------
+// Eigenvector of the stage matrix at R₀=1 with host equilibria (M=50, D=0.5):
+// L:N:A ≈ 97 : 8.4 : 1. Sized so the no-intervention run holds equilibrium from
+// year 0 instead of oscillating through a multi-year transient. The L count is
+// the annual *cohort* (eggs that survived to larva), not the simultaneous
+// questing-larva snapshot that field drag-counts measure.
 export const INIT = {
-  L: 400,
-  N: 200,
+  L: 5800,
+  N: 500,
   A: 60,
   // Endemic Lyme: ~20% infected nymphs, ~25% infected mice.
   fracNymphInf: 0.20,
