@@ -264,11 +264,18 @@ export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): Ye
     total += c;
   }
 
+  // Deer fencing: cells with active deerFencing (fresh deploy this year OR
+  // persisting carry-over) block deer in/out. Built after stepCell so
+  // persistEffects reflects this year's bookkeeping.
+  const fenced: boolean[] = next.map((c, i) =>
+    deployments[i]?.has('deerFencing') || (c.persistEffects.deerFencing ?? 0) > 0,
+  );
+
   // Fall rut pulse: extra deer-only mixing before year-end dispersal. Aligns
   // deer redistribution with autumn rut, when adult I. scapularis quest.
-  applyDeerHabitatDrift(next, DISPERSAL.deerRutFrac, flows);
+  applyDeerHabitatDrift(next, DISPERSAL.deerRutFrac, flows, fenced);
 
-  applyDispersal(next, flows);
+  applyDispersal(next, flows, fenced);
 
   const tickDeltaByCell = next.map((c, i) => (c.L + c.N + c.A) - preTickTotals[i]);
 

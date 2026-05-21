@@ -139,31 +139,45 @@ describe('engine', () => {
     expect(r.grid[0].L).toBeLessThan(1);
   });
 
-  it('deer fencing persists across years without redeployment', () => {
-    // Deploy on whole grid (clears A10 gate threshold of 6).
+  it('deer fencing persistence counter decrements across years', () => {
     let g = makeInitialGrid();
-    const deploys: Deployments = {};
-    for (const i of allCells()) deploys[i] = new Set(['deerFencing']);
+    const deploys: Deployments = { 0: new Set(['deerFencing']) };
     g = advanceYear(g, deploys).grid;
     expect(g[0].persistEffects.deerFencing).toBe(9);
-    // Advance 3 more years with no deployments; counter decrements.
     for (let y = 0; y < 3; y++) g = advanceYear(g, {}).grid;
     expect(g[0].persistEffects.deerFencing).toBe(6);
-    // Adult ticks should be heavily suppressed compared to baseline.
-    const baseline = makeInitialGrid();
-    let b = baseline;
-    for (let y = 0; y < 4; y++) b = advanceYear(b, {}).grid;
-    expect(g[0].A).toBeLessThan(b[0].A * 0.6);
   });
 
-  it('deerFencing on a single cell now works (1 sq mi >> 15-ac threshold)', () => {
+  it('deerFencing blocks deer entering a depleted cell', () => {
+    // Cull cell 0 to D=0, fence it. Neighbors at K should NOT replenish it.
     let gFence = makeInitialGrid();
     let gBase = makeInitialGrid();
-    const single: Deployments = { 0: new Set(['deerFencing']) };
-    gFence = advanceYear(gFence, single).grid;
+    gFence[0].D = 0;
+    gBase[0].D = 0;
+    const fence: Deployments = { 0: new Set(['deerFencing']) };
+    for (let y = 0; y < 3; y++) {
+      gFence = advanceYear(gFence, fence).grid;
+      gBase = advanceYear(gBase, {}).grid;
+    }
+    // Baseline: deer dispersal refills cell 0. Fenced: stays at zero.
+    expect(gFence[0].D).toBeLessThan(0.01);
+    expect(gBase[0].D).toBeGreaterThan(gFence[0].D + 0.05);
+  });
+
+  it('deerFencing traps deer inside the fenced cell', () => {
+    // Without fence, edge cell leaks deer to neighbors via drift + jumps.
+    // With fence, the resident deer pool stays put.
+    let gFence = makeInitialGrid();
+    let gBase = makeInitialGrid();
+    // Zero out neighbors so we can measure outflow as their gain.
+    const ns = [1, /* idx(1,0) */ 5];
+    for (const n of ns) { gFence[n].D = 0; gBase[n].D = 0; }
+    const fence: Deployments = { 0: new Set(['deerFencing']) };
+    gFence = advanceYear(gFence, fence).grid;
     gBase = advanceYear(gBase, {}).grid;
-    expect(gFence[0].persistEffects.deerFencing).toBe(9);
-    expect(gFence[0].A).toBeLessThan(gBase[0].A * 0.6);
+    const neighborGainFenced = ns.reduce((s, n) => s + gFence[n].D, 0);
+    const neighborGainBase = ns.reduce((s, n) => s + gBase[n].D, 0);
+    expect(neighborGainFenced).toBeLessThan(neighborGainBase);
   });
 
   it('deerFencing cost is charged on deploy', () => {
@@ -272,18 +286,18 @@ describe('engine', () => {
     expect(g[0].A).toBeLessThan(baseline[0].A * 0.2);
   });
 
-  it('A10: deerFencing on contiguous row of 6 cells clears gate', () => {
-    // 6-cell horizontal line in a 5x5 grid → wraps into 2 rows? GRID_SIZE=5
-    // default → row 0 cells [0..4] + cell 5 (row 1 col 0). Connected via
-    // cell 0-5 (col 0). So 6 cells: 0,1,2,3,4,5. All connected.
-    let g = makeInitialGrid();
-    const deploys: Deployments = { 0: new Set(['deerFencing']) };
-    for (let i = 1; i <= 5; i++) deploys[i] = new Set(['deerFencing']);
-    g = advanceYear(g, deploys).grid;
-    // After deploy, cell 0 should see fencing effect: adult survival cut to
-    // ~0.20 × 0.30 = 0.06 of baseline tickSurvival contribution.
-    const baseline = makeInitialGrid();
-    const b = advanceYear(baseline, {}).grid;
-    expect(g[0].A).toBeLessThan(b[0].A * 0.6);
+  it('deerFencing on a contiguous block isolates the interior from deer dispersal', () => {
+    // Fence the whole top row. Interior cell on row 1 should see deer dynamics
+    // unaffected from the north (fenced cells exchange no deer).
+    let gFence = makeInitialGrid();
+    let gBase = makeInitialGrid();
+    const deploys: Deployments = {};
+    for (let i = 0; i < 5; i++) deploys[i] = new Set(['deerFencing']);
+    // Spike deer behind the fence so dispersal would normally feed row 1.
+    for (let i = 0; i < 5; i++) { gFence[i].D *= 2; gBase[i].D *= 2; }
+    gFence = advanceYear(gFence, deploys).grid;
+    gBase = advanceYear(gBase, {}).grid;
+    // Cell idx 5 (row 1, col 0) sits directly south of fenced cell 0.
+    expect(gFence[5].D).toBeLessThan(gBase[5].D);
   });
 });

@@ -186,15 +186,14 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
   },
   deerFencing: {
     id: 'deerFencing', name: '8-ft deer exclusion fencing', cost: 240_000, icon: '🚧',
-    blurb: 'Physical fence around 1 sq mi (~6.4 km perimeter). One-time capex.',
-    apply: (m) => { m.adultSurvivalMul *= 0.20; m.tickSurvivalMul *= 0.30; },
+    blurb: 'Physical fence around 1 sq mi. Blocks deer movement in/out; no direct kill.',
+    // Mechanism is purely spatial: fenced cells are excluded from deer
+    // dispersal (local drift, fall rut, long-range jumps). See grid.ts.
+    apply: () => {},
     persistsYears: 10,
-    // Gate retired: single 1-sq-mi cell (640 ac) trivially exceeds the
-    // ≥15-acre exclosure minimum. Cost scales with perimeter (~16× from
-    // 1-ha baseline), not area.
     effect: {
       metric: 'QN', medianPct: 85, rangePct: [74, 97],
-      note: 'One-time capex (~$37/m perimeter ≈ $240k/sq-mi); ~10-yr durable.',
+      note: 'One-time capex (~$37/m perimeter ≈ $240k/sq-mi); ~10-yr durable. Effect emerges from cutting deer re-seeding, not direct mortality.',
     },
     citations: [
       { label: 'Daniels & Fish 1993', url: 'https://pubmed.ncbi.nlm.nih.gov/8271246/' },
