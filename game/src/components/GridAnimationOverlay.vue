@@ -3,6 +3,7 @@ import { ref, watch, onUnmounted } from 'vue';
 import { useGameStore, ANIMATION_MS } from '../store/game';
 import { GRID_SIZE } from '../sim/params';
 import type { FlowKind } from '../sim/grid';
+import TickGlyph from './TickGlyph.vue';
 
 const store = useGameStore();
 
@@ -35,7 +36,7 @@ const THRESHOLD: Record<FlowKind, number> = {
 };
 const MAX_PER_FLOW = 2;
 const GLYPH: Record<FlowKind, string> = {
-  tickA: '🦟',
+  tickA: '',
   mouse: '🐭',
   deer: '🦌',
 };
@@ -59,6 +60,12 @@ function spawn() {
   const offX = rect.left - wrapRect.left;
   const offY = rect.top - wrapRect.top;
 
+  const cw = rect.width / GRID_SIZE;
+  const ch = rect.height / GRID_SIZE;
+  // Perpendicular offset per kind, in fraction of cell size, to separate tracks.
+  // +1 = one side of the movement axis, -1 = the other. Tick adults ride center.
+  const TRACK: Record<FlowKind, number> = { deer: -0.25, mouse: 0.25, tickA: 0 };
+
   const newIcons: AnimIcon[] = [];
   let keyN = 0;
   for (const f of store.lastFlows) {
@@ -66,17 +73,27 @@ function spawn() {
     const count = Math.min(MAX_PER_FLOW, Math.max(1, Math.ceil(f.amount / t)));
     const [fx, fy] = cellCenter(rect, f.from);
     const [tx, ty] = cellCenter(rect, f.to);
+    // Perpendicular unit vector to movement direction (rot 90° CW): (dy, -dx).
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.hypot(dx, dy) || 1;
+    const perpX = (dy / len);
+    const perpY = (-dx / len);
+    const trackFrac = TRACK[f.kind];
+    // Scale by cell dimension along the perpendicular axis so quadrant-aligned for orthogonal moves.
+    const offsetX = perpX * trackFrac * cw;
+    const offsetY = perpY * trackFrac * ch;
     for (let k = 0; k < count; k++) {
-      const jitterX = (Math.random() - 0.5) * 18;
-      const jitterY = (Math.random() - 0.5) * 18;
+      const jitterX = (Math.random() - 0.5) * 10;
+      const jitterY = (Math.random() - 0.5) * 10;
       newIcons.push({
         key: `i${keyN++}`,
         glyph: GLYPH[f.kind],
         kind: f.kind,
-        fromX: offX + fx + jitterX,
-        fromY: offY + fy + jitterY,
-        toX: offX + tx + jitterX,
-        toY: offY + ty + jitterY,
+        fromX: offX + fx + offsetX + jitterX,
+        fromY: offY + fy + offsetY + jitterY,
+        toX: offX + tx + offsetX + jitterX,
+        toY: offY + ty + offsetY + jitterY,
         delayMs: Math.random() * 800,
       });
     }
@@ -127,7 +144,10 @@ onUnmounted(() => {
         '--ty': (ic.toY - ic.fromY) + 'px',
         animationDelay: ic.delayMs + 'ms',
       }"
-    >{{ ic.glyph }}</span>
+    >
+      <TickGlyph v-if="ic.kind === 'tickA'" :size="18" animated />
+      <template v-else>{{ ic.glyph }}</template>
+    </span>
     <span
       v-for="sk in skulls"
       :key="sk.key"
