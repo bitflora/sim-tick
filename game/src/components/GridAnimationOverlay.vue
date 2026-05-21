@@ -24,8 +24,15 @@ interface Skull {
   y: number;
 }
 
+interface Boom {
+  key: string;
+  x: number;
+  y: number;
+}
+
 const icons = ref<AnimIcon[]>([]);
 const skulls = ref<Skull[]>([]);
+const booms = ref<Boom[]>([]);
 const gridEl = ref<HTMLElement | null>(null);
 
 // Icons per unit-amount (kind -> per-icon amount threshold). Higher = fewer icons.
@@ -100,20 +107,27 @@ function spawn() {
   }
 
   const newSkulls: Skull[] = [];
-  for (let i = 0; i < store.lastTickDeltas.length; i++) {
-    if (store.lastTickDeltas[i] < 0) {
+  const newBooms: Boom[] = [];
+  for (let i = 0; i < store.lastTickPctChange.length; i++) {
+    const p = store.lastTickPctChange[i];
+    if (p <= -0.1) {
       const [x, y] = cellCenter(rect, i);
       newSkulls.push({ key: `s${i}`, x: offX + x, y: offY + y });
+    } else if (p >= 0.1) {
+      const [x, y] = cellCenter(rect, i);
+      newBooms.push({ key: `b${i}`, x: offX + x, y: offY + y });
     }
   }
 
   icons.value = newIcons;
   skulls.value = newSkulls;
+  booms.value = newBooms;
 
   if (cleanupTimer !== null) window.clearTimeout(cleanupTimer);
   cleanupTimer = window.setTimeout(() => {
     icons.value = [];
     skulls.value = [];
+    booms.value = [];
     cleanupTimer = null;
   }, ANIMATION_MS + 50);
 }
@@ -154,6 +168,14 @@ onUnmounted(() => {
       class="skull"
       :style="{ left: sk.x + 'px', top: sk.y + 'px' }"
     >💀</span>
+    <span
+      v-for="b in booms"
+      :key="b.key"
+      class="boom"
+      :style="{ left: b.x + 'px', top: b.y + 'px' }"
+    >
+      <TickGlyph :size="36" />
+    </span>
   </div>
 </template>
 
@@ -204,6 +226,14 @@ onUnmounted(() => {
   animation: skullflash 2200ms ease-out forwards;
   opacity: 0;
   filter: drop-shadow(0 0 4px rgba(0,0,0,0.8));
+}
+.boom {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+  animation: skullflash 2200ms ease-out forwards;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(120,0,0,0.9));
 }
 @keyframes skullflash {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }

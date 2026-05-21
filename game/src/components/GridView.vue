@@ -27,7 +27,6 @@ function lymeEradicated(c: CellState): boolean {
 }
 
 function gradientFor(c: CellState): string {
-  if (lymeEradicated(c)) return 'linear-gradient(135deg, #14532d, #14532d)';
   const tickT = (c.L + c.N + c.A) / INIT_TICK_TOTAL;
   const ninfT = c.Ninf / maxDIN.value;
   return `linear-gradient(135deg, ${rampColor(tickT)}, ${rampColor(ninfT)})`;
@@ -82,6 +81,7 @@ function hasDeploy(i: number): boolean {
         :title="`Cell ${i}: ticks=${(c.L + c.N + c.A).toFixed(0)} Ninf=${c.Ninf.toFixed(1)}`"
         @click="store.selectCell(i)"
       >
+        <div v-if="lymeEradicated(c)" class="eradicated-check">✓</div>
         <div class="glyphs">
           <span
             v-for="p in persistentFor(i)"
@@ -129,6 +129,13 @@ function hasDeploy(i: number): boolean {
   font-size: 32px; pointer-events: none;
 }
 .glyph { display: inline-block; }
+.eradicated-check {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 56px; font-weight: 900; color: #16a34a;
+  text-shadow: 0 0 4px #000, 0 0 2px #000;
+  pointer-events: none; z-index: 2;
+}
 .glyph.faded { opacity: 0.35; filter: grayscale(0.5); }
 .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 8px; color: var(--muted); }
 .sw { display: inline-block; width: 14px; height: 14px; border-radius: 2px; margin-left: 6px; }

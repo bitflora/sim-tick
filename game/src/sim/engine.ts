@@ -49,6 +49,7 @@ export interface YearResult {
   spend: number;
   flows: Flow[];
   tickDeltaByCell: number[];
+  tickPctChangeByCell: number[];
 }
 
 export function makeInitialGrid(): Grid {
@@ -287,8 +288,11 @@ export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): Ye
   applyDispersal(next, flows, fenced);
 
   const tickDeltaByCell = next.map((c, i) => (c.L + c.N + c.A) - preTickTotals[i]);
+  const tickPctChangeByCell = tickDeltaByCell.map((d, i) =>
+    preTickTotals[i] > 0 ? d / preTickTotals[i] : 0,
+  );
 
-  return { grid: next, casesThisYear: total, casesByCell, spend, flows, tickDeltaByCell };
+  return { grid: next, casesThisYear: total, casesByCell, spend, flows, tickDeltaByCell, tickPctChangeByCell };
 }
 
 export function totalCost(deployments: Deployments): number {

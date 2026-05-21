@@ -23,6 +23,7 @@ interface State {
   cumulativeSpend: number;
   lastFlows: Flow[];
   lastTickDeltas: number[];
+  lastTickPctChange: number[];
   animating: boolean;
   animationToken: number;
   rng: Rng;
@@ -44,6 +45,7 @@ export const useGameStore = defineStore('game', {
     cumulativeSpend: 0,
     lastFlows: [],
     lastTickDeltas: [],
+    lastTickPctChange: [],
     animating: false,
     animationToken: 0,
     rng: freshRng(),
@@ -85,6 +87,7 @@ export const useGameStore = defineStore('game', {
       this.pendingDeployments = {};
       this.lastFlows = r.flows;
       this.lastTickDeltas = r.tickDeltaByCell;
+      this.lastTickPctChange = r.tickPctChangeByCell;
       this.animating = true;
       this.animationToken += 1;
       const token = this.animationToken;
