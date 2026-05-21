@@ -111,6 +111,7 @@ export const useGameStore = defineStore('game', {
       this.cumulativeSpend = 0;
       this.lastFlows = [];
       this.lastTickDeltas = [];
+      this.lastTickPctChange = [];
       this.animating = false;
       this.animationToken += 1;
       this.rng = freshRng();

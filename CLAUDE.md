@@ -36,7 +36,7 @@ Compartmental model of *Ixodes scapularis* + *Borrelia burgdorferi* with explici
 
 ### State + UI (`game/src/store/`, `game/src/components/`)
 
-- `store/game.ts` — Pinia store. `pendingDeployments` is a per-cell `Set<InterventionId>` accumulated during a year; `advance()` calls `advanceYear`, pushes a `YearRecord`, and clears pending. Budget enforcement is in the `overBudget` getter — `advance()` is a no-op when over budget or `gameOver`.
+- `store/game.ts` — Pinia store. `pendingDeployments` is a per-cell `Set<InterventionId>` accumulated during a year; `advance()` calls `advanceYear`, pushes a `YearRecord`, and clears pending. `pendingCost` getter is informational (drives `BudgetBar`); `advance()` does not block on it — the player can overspend.
 - `components/` — `GridView`, `CellInspector`, `BudgetBar`, `HistoryChart`, `YearControls`. All read from the store.
 
 ### UI pane names (for communication)
