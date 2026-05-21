@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useGameStore } from '../store/game';
 import { GRID_SIZE, INIT } from '../sim/params';
 import { INTERVENTIONS, type InterventionId } from '../sim/interventions';
@@ -11,9 +10,7 @@ interface PersistGlyph { id: InterventionId; opacity: number }
 const store = useGameStore();
 
 const INIT_TICK_TOTAL = INIT.L + INIT.N + INIT.A;
-
-// Dynamic Ninf scale keeps contrast useful as the epidemic grows.
-const maxDIN = computed(() => Math.max(1, ...store.grid.map((c) => c.Ninf)));
+const INIT_NINF = INIT.N * INIT.fracNymphInf;
 
 function rampColor(t: number): string {
   const clamped = Math.min(1, Math.max(0, t));
@@ -28,7 +25,7 @@ function lymeEradicated(c: CellState): boolean {
 
 function gradientFor(c: CellState): string {
   const tickT = (c.L + c.N + c.A) / INIT_TICK_TOTAL;
-  const ninfT = c.Ninf / maxDIN.value;
+  const ninfT = c.Ninf / INIT_NINF;
   return `linear-gradient(135deg, ${rampColor(tickT)}, ${rampColor(ninfT)})`;
 }
 

@@ -10,12 +10,10 @@ const store = useGameStore();
       Advance year ▶
     </button>
     <button @click="store.reset">Reset</button>
-    <span v-if="store.animating" class="anim-note">Animating…</span>
   </div>
 </template>
 
 <style scoped>
 .controls { display: flex; gap: 12px; align-items: center; }
-.anim-note { font-size: 12px; color: var(--muted); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
