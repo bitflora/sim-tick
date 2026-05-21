@@ -57,7 +57,7 @@ export const useGameStore = defineStore('game', {
     gridSize: () => GRID_SIZE,
     tickPopulationFraction: (s): number => {
       let total = 0;
-      for (const c of s.grid) total += c.L + c.N + c.A;
+      for (const c of s.grid) total += c.larvae + c.nymphs + c.adults;
       const baseline = (INIT.L + INIT.N + INIT.A) * s.grid.length;
       return baseline > 0 ? Math.min(1, total / baseline) : 0;
     },

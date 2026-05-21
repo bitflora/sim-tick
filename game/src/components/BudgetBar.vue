@@ -5,10 +5,10 @@ import { useGameStore } from '../store/game';
 const store = useGameStore();
 
 const totalTicks = computed(() =>
-  store.grid.reduce((s, c) => s + c.L + c.N + c.A, 0),
+  store.grid.reduce((s, c) => s + c.larvae + c.nymphs + c.adults, 0),
 );
 const infectedTicks = computed(() =>
-  store.grid.reduce((s, c) => s + c.Linf + c.Ninf + c.Ainf, 0),
+  store.grid.reduce((s, c) => s + c.larvaeInfected + c.nymphsInfected + c.adultsInfected, 0),
 );
 </script>
 

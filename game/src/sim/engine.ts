@@ -112,11 +112,11 @@ function saturation(host: number, kHalf: number): number {
 // Adult ticks feeding on deer: Hill-3 with hard floor at 0.05 deer/ha.
 // Captures the Monhegan threshold — Ixodes adult reproduction collapses
 // below ~5 deer/km² (= 0.05/ha), not a smooth Hill-1 curve.
-function adultFeedSaturation(D: number): number {
-  if (D < 0.05) return 0;
+function adultFeedSaturation(deer: number): number {
+  if (deer < 0.05) return 0;
   const k = TICK.kDeerHalf;
-  const D3 = D * D * D;
-  return D3 / (k * k * k + D3);
+  const deer3 = deer * deer * deer;
+  return deer3 / (k * k * k + deer3);
 }
 
 function stepCell(
@@ -151,12 +151,12 @@ function stepCell(
       if (cell.persistEffects[iv.id] === 0) delete cell.persistEffects[iv.id];
     }
   }
-  cell.hab = mods.habMul;
+  cell.habitat = mods.habMul;
 
   // 1. One-shot host density adjustments (cull / mouse reduction) applied first.
-  cell.M *= mods.mouseDensityMul;
-  cell.Minf = Math.min(cell.Minf, cell.M);
-  cell.D *= mods.deerDensityMul;
+  cell.mice *= mods.mouseDensityMul;
+  cell.miceInfected = Math.min(cell.miceInfected, cell.mice);
+  cell.deer *= mods.deerDensityMul;
 
   // 1a. Annual mouse turnover for the infected subset. P. leucopus has high
   // annual mortality (~65%); infected individuals die at the same rate as
@@ -165,33 +165,33 @@ function stepCell(
   // equilibrium under logistic dynamics, but Minf decays toward zero each
   // year unless replenished by new acquisitions. Without this Minf ratchets
   // up indefinitely and biases all downstream infection.
-  cell.Minf *= MOUSE.annualSurv;
+  cell.miceInfected *= MOUSE.annualSurv;
 
   // 1b. Host logistic growth runs BEFORE tick/host interactions so larval
   // feeding, mouse infection acquisition, and case generation all see the
   // same mouse pool for the year. (Was previously between steps 5 and
   // updateMouseInfection — mismatched M between fracNewNymphInfected and
   // updateMouseInfection.)
-  cell.M = Math.max(0, cell.M + MOUSE.r * cell.M * (1 - cell.M / MOUSE.K));
-  cell.Minf = Math.min(cell.Minf, cell.M);
-  cell.D = Math.max(0, cell.D + DEER.r * cell.D * (1 - cell.D / DEER.K));
+  cell.mice = Math.max(0, cell.mice + MOUSE.r * cell.mice * (1 - cell.mice / MOUSE.K));
+  cell.miceInfected = Math.min(cell.miceInfected, cell.mice);
+  cell.deer = Math.max(0, cell.deer + DEER.r * cell.deer * (1 - cell.deer / DEER.K));
 
   // 2. Tick reproduction: eggs from adults need deer for blood meal.
   // Hard threshold near 0.05 deer/ha (Monhegan-style collapse) via Hill-3.
-  const adultFeedSat = adultFeedSaturation(cell.D);
+  const adultFeedSat = adultFeedSaturation(cell.deer);
   // NOTE: larvaSurvivalMul is applied at larva->nymph only; applying it here
   // would double-count tick-tube kill on the same cohort.
   const eggsToLarvae =
-    cell.A * adultFeedSat * TICK.eggsPerAdult * TICK.sEggToLarva *
-    mods.tickSurvivalMul * cell.hab *
+    cell.adults * adultFeedSat * TICK.eggsPerAdult * TICK.sEggToLarva *
+    mods.tickSurvivalMul * cell.habitat *
     (rng ? lognormalNoise(rng) : 1);
 
   // 3. Larva -> nymph: needs mouse availability. Tick-tube larva kill applies
   // here (larvae die feeding on permethrin-treated mice). nymphSurvivalMul
   // also lands here because the molted cohort is what becomes questing nymphs.
-  const mouseSat = saturation(cell.M, TICK.kMouseHalf);
-  const larvaToNymph = cell.L * TICK.sLarvaToNymph * mouseSat *
-    mods.tickSurvivalMul * mods.larvaSurvivalMul * mods.nymphSurvivalMul * cell.hab *
+  const mouseSat = saturation(cell.mice, TICK.kMouseHalf);
+  const larvaToNymph = cell.larvae * TICK.sLarvaToNymph * mouseSat *
+    mods.tickSurvivalMul * mods.larvaSurvivalMul * mods.nymphSurvivalMul * cell.habitat *
     (rng ? lognormalNoise(rng) : 1);
 
   // Fraction of new nymphs that are infected (from feeding on infected mice).
@@ -201,30 +201,30 @@ function stepCell(
   // applies here so fourPoster (deer-applied permethrin) also kills nymphs
   // taking their blood meal on treated deer, not only standing overwintered adults.
   const nymphFeedSat = 0.5 * mouseSat + 0.5 * adultFeedSat;
-  const nymphToAdult = cell.N * TICK.sNymphToAdult * nymphFeedSat *
-    mods.tickSurvivalMul * mods.adultSurvivalMul * cell.hab *
+  const nymphToAdult = cell.nymphs * TICK.sNymphToAdult * nymphFeedSat *
+    mods.tickSurvivalMul * mods.adultSurvivalMul * cell.habitat *
     (rng ? lognormalNoise(rng) : 1);
   // Infected nymphs that advance carry infection forward.
-  const nymphInfRatio = cell.N > 0 ? cell.Ninf / cell.N : 0;
+  const nymphInfRatio = cell.nymphs > 0 ? cell.nymphsInfected / cell.nymphs : 0;
 
   // 5. Adult overwinter survival (fraction that survives to next year still as adult,
-  // before reproducing again — simplified: we treat A as a standing pool).
-  const adultSurv = cell.A * TICK.sAdultOverwinter * mods.tickSurvivalMul * mods.adultSurvivalMul;
-  const adultInfRatio = cell.A > 0 ? cell.Ainf / cell.A : 0;
+  // before reproducing again — simplified: we treat adults as a standing pool).
+  const adultSurv = cell.adults * TICK.sAdultOverwinter * mods.tickSurvivalMul * mods.adultSurvivalMul;
+  const adultInfRatio = cell.adults > 0 ? cell.adultsInfected / cell.adults : 0;
 
   // Build new stage values.
-  const newL = eggsToLarvae;
-  const newN = larvaToNymph;
-  const newA = adultSurv + nymphToAdult;  // surviving adults + freshly molted
+  const newLarvae = eggsToLarvae;
+  const newNymphs = larvaToNymph;
+  const newAdults = adultSurv + nymphToAdult;  // surviving adults + freshly molted
 
   // Infected counts.
-  const newLinf = 0; // vertical transmission ~0
-  const newNinf = newN * newNymphInfFrac; // freshly molted nymphs carry infection from larval feeding
-  const newAinf = adultSurv * adultInfRatio + nymphToAdult * nymphInfRatio;
+  const newLarvaeInfected = 0; // vertical transmission ~0
+  const newNymphsInfected = newNymphs * newNymphInfFrac; // freshly molted nymphs carry infection from larval feeding
+  const newAdultsInfected = adultSurv * adultInfRatio + nymphToAdult * nymphInfRatio;
 
   // 6. Update Lyme in mice + accrue human cases. Uses last year's nymph pool
-  // (cell.N/Ninf, pre-overwrite) for human exposure; mouse growth already ran
-  // in step 1b so M/Minf are this year's pool.
+  // (cell.nymphs/nymphsInfected, pre-overwrite) for human exposure; mouse
+  // growth already ran in step 1b so mice/miceInfected are this year's pool.
   const cases = updateMouseInfection(
     cell,
     mods.humanTransmissionMul,
@@ -233,12 +233,12 @@ function stepCell(
   );
 
   // Commit new tick stages.
-  cell.L = newL;
-  cell.Linf = newLinf;
-  cell.N = newN;
-  cell.Ninf = newNinf;
-  cell.A = newA;
-  cell.Ainf = newAinf;
+  cell.larvae = newLarvae;
+  cell.larvaeInfected = newLarvaeInfected;
+  cell.nymphs = newNymphs;
+  cell.nymphsInfected = newNymphsInfected;
+  cell.adults = newAdults;
+  cell.adultsInfected = newAdultsInfected;
 
   return cases;
 }
@@ -246,7 +246,7 @@ function stepCell(
 export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): YearResult {
   const next: Grid = grid.map(cloneCell);
   const casesByCell: number[] = new Array(next.length).fill(0);
-  const preTickTotals = grid.map((c) => c.L + c.N + c.A);
+  const preTickTotals = grid.map((c) => c.larvae + c.nymphs + c.adults);
   const flows: Flow[] = [];
   let total = 0;
   let spend = 0;
@@ -293,17 +293,17 @@ export function advanceYear(grid: Grid, deployments: Deployments, rng?: Rng): Ye
   // residuals. Deer stays fractional — Hill-3 adult-feed saturation has a
   // 0.05/ha floor and depends on sub-unit densities.
   for (const cell of next) {
-    cell.L = Math.round(cell.L);
-    cell.N = Math.round(cell.N);
-    cell.A = Math.round(cell.A);
-    cell.M = Math.round(cell.M);
-    cell.Linf = Math.min(cell.L, Math.round(cell.Linf));
-    cell.Ninf = Math.min(cell.N, Math.round(cell.Ninf));
-    cell.Ainf = Math.min(cell.A, Math.round(cell.Ainf));
-    cell.Minf = Math.min(cell.M, Math.round(cell.Minf));
+    cell.larvae = Math.round(cell.larvae);
+    cell.nymphs = Math.round(cell.nymphs);
+    cell.adults = Math.round(cell.adults);
+    cell.mice = Math.round(cell.mice);
+    cell.larvaeInfected = Math.min(cell.larvae, Math.round(cell.larvaeInfected));
+    cell.nymphsInfected = Math.min(cell.nymphs, Math.round(cell.nymphsInfected));
+    cell.adultsInfected = Math.min(cell.adults, Math.round(cell.adultsInfected));
+    cell.miceInfected = Math.min(cell.mice, Math.round(cell.miceInfected));
   }
 
-  const tickDeltaByCell = next.map((c, i) => (c.L + c.N + c.A) - preTickTotals[i]);
+  const tickDeltaByCell = next.map((c, i) => (c.larvae + c.nymphs + c.adults) - preTickTotals[i]);
   const tickPctChangeByCell = tickDeltaByCell.map((d, i) =>
     preTickTotals[i] > 0 ? d / preTickTotals[i] : 0,
   );

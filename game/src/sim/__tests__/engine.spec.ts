@@ -23,7 +23,7 @@ describe('engine', () => {
     const deploys: Deployments = {};
     for (const i of allCells()) deploys[i] = new Set(['acaricide']);
     for (let y = 0; y < 3; y++) g = advanceYear(g, deploys).grid;
-    const totalN = g.reduce((s, c) => s + c.N, 0);
+    const totalN = g.reduce((s, c) => s + c.nymphs, 0);
     const baselineN = INIT.N * GRID_SIZE * GRID_SIZE;
     expect(totalN).toBeLessThan(baselineN * 0.2);
   });
@@ -35,8 +35,8 @@ describe('engine', () => {
     for (const i of allCells()) deploys[i] = new Set(['messaging']);
     const rBase = advanceYear(gBase, {});
     const rMsg = advanceYear(gMsg, deploys);
-    const nBase = rBase.grid.reduce((s, c) => s + c.N, 0);
-    const nMsg = rMsg.grid.reduce((s, c) => s + c.N, 0);
+    const nBase = rBase.grid.reduce((s, c) => s + c.nymphs, 0);
+    const nMsg = rMsg.grid.reduce((s, c) => s + c.nymphs, 0);
     expect(Math.abs(nBase - nMsg)).toBeLessThan(1e-6);
     expect(rMsg.casesThisYear).toBeLessThan(rBase.casesThisYear);
   });
@@ -60,8 +60,8 @@ describe('engine', () => {
       gBase = advanceYear(gBase, {}).grid;
       gTrt = advanceYear(gTrt, deploys).grid;
     }
-    const baseN = gBase.reduce((s, c) => s + c.Ninf, 0);
-    const trtN = gTrt.reduce((s, c) => s + c.Ninf, 0);
+    const baseN = gBase.reduce((s, c) => s + c.nymphsInfected, 0);
+    const trtN = gTrt.reduce((s, c) => s + c.nymphsInfected, 0);
     const ninfFrac = trtN / baseN;
     // Run year 4 to compare case counts under same Ninf trajectory.
     const rBase = advanceYear(gBase, {});
@@ -95,7 +95,7 @@ describe('engine', () => {
     // First-year only, then 2 more skipped years.
     g1cmp = advanceYear(g1cmp, cluster()).grid;
     for (let y = 0; y < 2; y++) g1cmp = advanceYear(g1cmp, {}).grid;
-    expect(g3[0].A).toBeLessThan(g1cmp[0].A);
+    expect(g3[0].adults).toBeLessThan(g1cmp[0].adults);
   });
 
   it('A2: fourPoster consecutiveYears resets on skipped year', () => {
@@ -119,8 +119,8 @@ describe('engine', () => {
     for (const i of allCells()) deploys[i] = new Set(['tickTubes']);
     gBase = advanceYear(gBase, {}).grid;
     gTube = advanceYear(gTube, deploys).grid;
-    const baseN = gBase.reduce((s, c) => s + c.N, 0);
-    const tubeN = gTube.reduce((s, c) => s + c.N, 0);
+    const baseN = gBase.reduce((s, c) => s + c.nymphs, 0);
+    const tubeN = gTube.reduce((s, c) => s + c.nymphs, 0);
     // tubes apply larvaSurvivalMul=0.40 and nymphSurvivalMul=0.55 once on the
     // L->N transition. Ratio should be near 0.40*0.55=0.22 of baseline (modulo
     // saturation effects). With the old double-count bug it was 0.40*0.22~0.09.
@@ -133,10 +133,10 @@ describe('engine', () => {
     // (hard floor); the L cohort next year crashes.
     const g = makeInitialGrid();
     g[0] = makeInitialCell();
-    g[0].D = 0.04; // below threshold
+    g[0].deer = 0.04; // below threshold
     const r = advanceYear(g, {});
     // New larvae for cell 0 should be ~zero (no egg production allowed).
-    expect(r.grid[0].L).toBeLessThan(1);
+    expect(r.grid[0].larvae).toBeLessThan(1);
   });
 
   it('deer fencing persistence counter decrements across years', () => {
@@ -152,16 +152,16 @@ describe('engine', () => {
     // Cull cell 0 to D=0, fence it. Neighbors at K should NOT replenish it.
     let gFence = makeInitialGrid();
     let gBase = makeInitialGrid();
-    gFence[0].D = 0;
-    gBase[0].D = 0;
+    gFence[0].deer = 0;
+    gBase[0].deer = 0;
     const fence: Deployments = { 0: new Set(['deerFencing']) };
     for (let y = 0; y < 3; y++) {
       gFence = advanceYear(gFence, fence).grid;
       gBase = advanceYear(gBase, {}).grid;
     }
     // Baseline: deer dispersal refills cell 0. Fenced: stays at zero.
-    expect(gFence[0].D).toBeLessThan(0.01);
-    expect(gBase[0].D).toBeGreaterThan(gFence[0].D + 0.05);
+    expect(gFence[0].deer).toBeLessThan(0.01);
+    expect(gBase[0].deer).toBeGreaterThan(gFence[0].deer + 0.05);
   });
 
   it('deerFencing traps deer inside the fenced cell', () => {
@@ -171,12 +171,12 @@ describe('engine', () => {
     let gBase = makeInitialGrid();
     // Zero out neighbors so we can measure outflow as their gain.
     const ns = [1, /* idx(1,0) */ 5];
-    for (const n of ns) { gFence[n].D = 0; gBase[n].D = 0; }
+    for (const n of ns) { gFence[n].deer = 0; gBase[n].deer = 0; }
     const fence: Deployments = { 0: new Set(['deerFencing']) };
     gFence = advanceYear(gFence, fence).grid;
     gBase = advanceYear(gBase, {}).grid;
-    const neighborGainFenced = ns.reduce((s, n) => s + gFence[n].D, 0);
-    const neighborGainBase = ns.reduce((s, n) => s + gBase[n].D, 0);
+    const neighborGainFenced = ns.reduce((s, n) => s + gFence[n].deer, 0);
+    const neighborGainBase = ns.reduce((s, n) => s + gBase[n].deer, 0);
     expect(neighborGainFenced).toBeLessThan(neighborGainBase);
   });
 
@@ -217,12 +217,12 @@ describe('engine', () => {
       casesB += rB.casesThisYear; casesR += rR.casesThisYear;
     }
     // Nymph density unchanged (within 1%) — no tick-survival effect.
-    const nBase = gB.reduce((s, c) => s + c.N, 0);
-    const nRtv = gR.reduce((s, c) => s + c.N, 0);
+    const nBase = gB.reduce((s, c) => s + c.nymphs, 0);
+    const nRtv = gR.reduce((s, c) => s + c.nymphs, 0);
     expect(Math.abs(nRtv - nBase) / nBase).toBeLessThan(0.01);
     // Mouse infection grew less under RTV.
-    const minfBase = gB.reduce((s, c) => s + c.Minf, 0);
-    const minfRtv = gR.reduce((s, c) => s + c.Minf, 0);
+    const minfBase = gB.reduce((s, c) => s + c.miceInfected, 0);
+    const minfRtv = gR.reduce((s, c) => s + c.miceInfected, 0);
     expect(minfRtv).toBeLessThan(minfBase);
     // Cumulative cases lower under RTV (yr2+ via less-infected nymphs).
     expect(casesR).toBeLessThan(casesB);
@@ -237,7 +237,7 @@ describe('engine', () => {
     let minN = Infinity, maxN = -Infinity;
     for (let y = 0; y < 20; y++) {
       g = advanceYear(g, {}, rng).grid;
-      const totalN = g.reduce((s, c) => s + c.N, 0);
+      const totalN = g.reduce((s, c) => s + c.nymphs, 0);
       if (totalN < minN) minN = totalN;
       if (totalN > maxN) maxN = totalN;
     }
@@ -255,7 +255,7 @@ describe('engine', () => {
     for (let y = 0; y < 3; y++) g = advanceYear(g, {}, rng).grid;
     for (let y = 0; y < 15; y++) {
       g = advanceYear(g, {}, rng).grid;
-      g.forEach((c, i) => seriesByCell[i].push(c.N));
+      g.forEach((c, i) => seriesByCell[i].push(c.nymphs));
     }
     const cvs: number[] = [];
     for (const s of seriesByCell) {
@@ -273,17 +273,17 @@ describe('engine', () => {
     // see its adult cohort decay toward zero within a few years (no reproduction,
     // adult overwinter survival 0.40 compounding).
     let g = makeInitialGrid();
-    g[0].D = 0;
-    g[0].M = 0; // also kill mice so dispersal can't reseed too fast
+    g[0].deer = 0;
+    g[0].mice = 0; // also kill mice so dispersal can't reseed too fast
     for (let y = 0; y < 5; y++) {
       g = advanceYear(g, {}).grid;
-      g[0].D = 0; // hold deer at zero (override dispersal pull)
+      g[0].deer = 0; // hold deer at zero (override dispersal pull)
     }
     // Compare to baseline cell on a separate grid (not contaminated by
     // dispersal from cell 0).
     let baseline = makeInitialGrid();
     for (let y = 0; y < 5; y++) baseline = advanceYear(baseline, {}).grid;
-    expect(g[0].A).toBeLessThan(baseline[0].A * 0.2);
+    expect(g[0].adults).toBeLessThan(baseline[0].adults * 0.2);
   });
 
   it('deerFencing on a contiguous block isolates the interior from deer dispersal', () => {
@@ -294,10 +294,10 @@ describe('engine', () => {
     const deploys: Deployments = {};
     for (let i = 0; i < 5; i++) deploys[i] = new Set(['deerFencing']);
     // Spike deer behind the fence so dispersal would normally feed row 1.
-    for (let i = 0; i < 5; i++) { gFence[i].D *= 2; gBase[i].D *= 2; }
+    for (let i = 0; i < 5; i++) { gFence[i].deer *= 2; gBase[i].deer *= 2; }
     gFence = advanceYear(gFence, deploys).grid;
     gBase = advanceYear(gBase, {}).grid;
     // Cell idx 5 (row 1, col 0) sits directly south of fenced cell 0.
-    expect(gFence[5].D).toBeLessThan(gBase[5].D);
+    expect(gFence[5].deer).toBeLessThan(gBase[5].deer);
   });
 });

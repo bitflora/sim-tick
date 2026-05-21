@@ -21,12 +21,12 @@ function rampColor(t: number): string {
 
 function lymeEradicated(c: CellState): boolean {
   // Match displayed precision: tick stages render toFixed(0), mice toFixed(1).
-  return c.Linf < 0.5 && c.Ninf < 0.5 && c.Ainf < 0.5 && c.Minf < 0.05;
+  return c.larvaeInfected < 0.5 && c.nymphsInfected < 0.5 && c.adultsInfected < 0.5 && c.miceInfected < 0.05;
 }
 
 function gradientFor(c: CellState): string {
-  const tickT = (c.L + c.N + c.A) / INIT_TICK_TOTAL;
-  const ninfT = c.Ninf / INIT_NINF;
+  const tickT = (c.larvae + c.nymphs + c.adults) / INIT_TICK_TOTAL;
+  const ninfT = c.nymphsInfected / INIT_NINF;
   return `linear-gradient(135deg, ${rampColor(tickT)}, ${rampColor(ninfT)})`;
 }
 
@@ -81,7 +81,7 @@ function onCellClick(i: number) {
         class="cell"
         :class="{ selected: store.selectedCell === i, deploy: hasDeploy(i) }"
         :style="{ background: gradientFor(c) }"
-        :title="`Cell ${i}: ticks=${(c.L + c.N + c.A).toFixed(0)} Ninf=${c.Ninf.toFixed(1)}`"
+        :title="`Cell ${i}: ticks=${(c.larvae + c.nymphs + c.adults).toFixed(0)} Ninf=${c.nymphsInfected.toFixed(1)}`"
         @click="onCellClick(i)"
       >
         <div v-if="lymeEradicated(c)" class="eradicated-check">✓</div>

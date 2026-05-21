@@ -65,22 +65,22 @@ export function applyDeerHabitatDrift(
   flows?: Flow[],
   fenced?: boolean[],
 ) {
-  const D = grid.map((c) => c.D);
+  const deer = grid.map((c) => c.deer);
   const delta = new Array(grid.length).fill(0);
   for (let i = 0; i < grid.length; i++) {
     // Fenced cells: no deer in or out. Trapped pop stays put this step.
     if (fenced?.[i]) continue;
-    const out = D[i] * frac;
+    const out = deer[i] * frac;
     if (out === 0) continue;
     // Exclude fenced neighbors — they don't accept incoming deer.
     const ns = neighbors(i).filter((n) => !fenced?.[n]);
     if (ns.length === 0) continue; // surrounded by fences: deer stay home
     let W = 0;
-    for (const n of ns) W += grid[n].hab;
+    for (const n of ns) W += grid[n].habitat;
     delta[i] -= out;
     if (W > 0) {
       for (const n of ns) {
-        const amt = out * (grid[n].hab / W);
+        const amt = out * (grid[n].habitat / W);
         delta[n] += amt;
         if (flows && amt > 0) flows.push({ from: i, to: n, kind: 'deer', amount: amt });
       }
@@ -93,7 +93,7 @@ export function applyDeerHabitatDrift(
       }
     }
   }
-  for (let i = 0; i < grid.length; i++) grid[i].D = D[i] + delta[i];
+  for (let i = 0; i < grid.length; i++) grid[i].deer = deer[i] + delta[i];
 }
 
 // Long-range deer jumps: a small share of each cell's deer enter a global
@@ -139,7 +139,7 @@ export function applyDeerLongRangeJumps(
 
   for (let i = 0; i < N; i++) {
     if (fenced?.[i]) continue;
-    const out = grid[i].D * frac;
+    const out = grid[i].deer * frac;
     if (out <= 0) continue;
 
     // Build reachable destination set with habitat weights.
@@ -150,7 +150,7 @@ export function applyDeerLongRangeJumps(
       if (j === i || fenced?.[j]) continue;
       if (pathBlocked(i, j, fenced)) continue;
       dests.push(j);
-      const w = grid[j].hab;
+      const w = grid[j].habitat;
       weights.push(w);
       W += w;
     }
@@ -180,15 +180,15 @@ export function applyDeerLongRangeJumps(
     }
   }
 
-  for (let i = 0; i < N; i++) grid[i].D += delta[i];
+  for (let i = 0; i < N; i++) grid[i].deer += delta[i];
   if (flows && sampledFlows) flows.push(...sampledFlows);
 }
 
 export function applyDispersal(grid: Grid, flows?: Flow[], fenced?: boolean[]) {
   // Adults (with proportional infected fraction).
-  disperseField(grid, (c) => c.A, (c, v) => { const ratio = c.A > 0 ? c.Ainf / c.A : 0; c.A = v; c.Ainf = v * ratio; }, DISPERSAL.tickAdultFrac, flows, 'tickA');
+  disperseField(grid, (c) => c.adults, (c, v) => { const ratio = c.adults > 0 ? c.adultsInfected / c.adults : 0; c.adults = v; c.adultsInfected = v * ratio; }, DISPERSAL.tickAdultFrac, flows, 'tickA');
   // Mice.
-  disperseField(grid, (c) => c.M, (c, v) => { const ratio = c.M > 0 ? c.Minf / c.M : 0; c.M = v; c.Minf = v * ratio; }, DISPERSAL.mouseFrac, flows, 'mouse');
+  disperseField(grid, (c) => c.mice, (c, v) => { const ratio = c.mice > 0 ? c.miceInfected / c.mice : 0; c.mice = v; c.miceInfected = v * ratio; }, DISPERSAL.mouseFrac, flows, 'mouse');
   // Deer: habitat-weighted local drift, then rare long-range jumps.
   // `fenced` blocks deer in/out of marked cells (deerFencing intervention).
   applyDeerHabitatDrift(grid, DISPERSAL.deerMixFrac, flows, fenced);

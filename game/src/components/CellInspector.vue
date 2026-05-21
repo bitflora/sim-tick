@@ -90,12 +90,12 @@ function gateStatus(iv: Intervention): { ok: boolean; size: number; need: number
   <div class="panel inspector">
     <h3>Cell {{ store.selectedCell }}</h3>
     <div class="stats">
-      <div><b>Larvae</b> {{ cell.L.toFixed(0) }} <small>({{ pct(cell.Linf, cell.L) }} inf)</small></div>
-      <div><b>Nymphs</b> {{ cell.N.toFixed(0) }} <small>({{ pct(cell.Ninf, cell.N) }} inf)</small></div>
-      <div><b>Adults</b> {{ cell.A.toFixed(0) }} <small>({{ pct(cell.Ainf, cell.A) }} inf)</small></div>
-      <div><b>Mice</b> {{ cell.M.toFixed(1) }}/ha <small>({{ pct(cell.Minf, cell.M, 0.05) }} inf)</small></div>
-      <div><b>Deer</b> {{ cell.D.toFixed(2) }}/ha</div>
-      <div><b>Habitat</b> {{ cell.hab.toFixed(2) }}</div>
+      <div><b>Larvae</b> {{ cell.larvae.toFixed(0) }} <small>({{ pct(cell.larvaeInfected, cell.larvae) }} inf)</small></div>
+      <div><b>Nymphs</b> {{ cell.nymphs.toFixed(0) }} <small>({{ pct(cell.nymphsInfected, cell.nymphs) }} inf)</small></div>
+      <div><b>Adults</b> {{ cell.adults.toFixed(0) }} <small>({{ pct(cell.adultsInfected, cell.adults) }} inf)</small></div>
+      <div><b>Mice</b> {{ cell.mice.toFixed(1) }}/ha <small>({{ pct(cell.miceInfected, cell.mice, 0.05) }} inf)</small></div>
+      <div><b>Deer</b> {{ cell.deer.toFixed(2) }}/ha</div>
+      <div><b>Habitat</b> {{ cell.habitat.toFixed(2) }}</div>
     </div>
     <div v-if="Object.keys(cell.persistEffects).length > 0" class="carry">
       <b>Active carry-over:</b>

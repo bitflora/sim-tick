@@ -17,41 +17,42 @@ export function updateMouseInfection(
   propertyScaleActive: boolean,
   mouseAcquisitionMul: number,
 ): number {
-  const Ninf = cell.Ninf;
-  const M = cell.M;
-  if (M <= 0) { cell.Minf = 0; return 0; }
+  const nymphsInfected = cell.nymphsInfected;
+  const mice = cell.mice;
+  if (mice <= 0) { cell.miceInfected = 0; return 0; }
 
   // Density-based annual hazard on susceptible mice:
-  //   h = pNymphToMouse · nymphContactRate · (Ninf / M)
+  //   h = pNymphToMouse · nymphContactRate · (nymphsInfected / mice)
   // Scales with absolute infected-nymph density per mouse, so interventions
   // that cut nymph numbers (acaricide, tick tubes, bait boxes) correctly
   // reduce mouse FOI — not just ones that shift the infected fraction.
   // mouseAcquisitionMul applies the RTV antibody block at the mouse→tick
   // interface (anti-OspA neutralizes spirochetes in the feeding nymph).
-  const hazardMouse = LYME.pNymphToMouse * mouseAcquisitionMul * LYME.nymphContactRate * (Ninf / M);
+  const hazardMouse = LYME.pNymphToMouse * mouseAcquisitionMul * LYME.nymphContactRate * (nymphsInfected / mice);
   const newInfFrac = 1 - Math.exp(-hazardMouse);
-  const susceptible = M - cell.Minf;
+  const susceptible = mice - cell.miceInfected;
   const newMouseInf = susceptible * newInfFrac;
-  cell.Minf = Math.min(M, cell.Minf + newMouseInf);
+  cell.miceInfected = Math.min(mice, cell.miceInfected + newMouseInf);
 
-  // Human cases: blend in-yard Ninf with an untreatable off-site background
-  // when property-scale interventions are active. See LYME.spilloverDiscount
-  // and the Tick Project / Hinckley RCT "QN ↓ but HC null" finding.
-  const effectiveNinf = propertyScaleActive
-    ? (1 - LYME.spilloverDiscount) * Ninf + LYME.spilloverDiscount * LYME.spilloverBaselineInfectedNymphs
-    : Ninf;
-  const cases = LYME.humansPerCell * LYME.humanBitesPerNymph * effectiveNinf * LYME.pNymphToHuman * humanTransmissionMul;
+  // Human cases: blend in-yard infected nymphs with an untreatable off-site
+  // background when property-scale interventions are active. See
+  // LYME.spilloverDiscount and the Tick Project / Hinckley RCT "QN ↓ but HC
+  // null" finding.
+  const effectiveNymphsInfected = propertyScaleActive
+    ? (1 - LYME.spilloverDiscount) * nymphsInfected + LYME.spilloverDiscount * LYME.spilloverBaselineInfectedNymphs
+    : nymphsInfected;
+  const cases = LYME.humansPerCell * LYME.humanBitesPerNymph * effectiveNymphsInfected * LYME.pNymphToHuman * humanTransmissionMul;
   return cases;
 }
 
 // Compute fraction of newly-molted nymphs that are infected, based on larval
 // feeding on mice this year. Called in engine when larvae advance to nymphs.
 export function fracNewNymphInfected(cell: CellState, mouseInfectivityMul: number): number {
-  const M = cell.M;
-  if (M <= 0) return 0;
-  const infFracM = cell.Minf / M;
+  const mice = cell.mice;
+  if (mice <= 0) return 0;
+  const miceInfFrac = cell.miceInfected / mice;
   // Per-larva probability of acquiring infection. mouseInfectivityMul applies
   // the RTV antibody block at the mouse→larva interface.
-  const hazard = LYME.pMouseToLarva * mouseInfectivityMul * LYME.larvaBitesPerMouse * infFracM;
+  const hazard = LYME.pMouseToLarva * mouseInfectivityMul * LYME.larvaBitesPerMouse * miceInfFrac;
   return 1 - Math.exp(-hazard);
 }
