@@ -32,7 +32,18 @@ export const MOUSE = {
   r: 1.2,                        // intrinsic annual growth (Peromyscus leucopus).
   K: 50,                         // carrying capacity per ha (oak-mast year highs).
   init: 25,
+  // Annual survival of P. leucopus. Median lifespan in the wild is well under
+  // a year; overwinter survival is the bottleneck. Applied to Minf each year
+  // so infected mice don't persist forever; the standing population M is
+  // already at logistic equilibrium (net growth captures background mortality
+  // balanced by births, all born susceptible). 0.35 = ~65% annual mortality.
+  annualSurv: 0.35,
 };
+// Deer (Odocoileus virginianus) are reservoir-INCOMPETENT for B. burgdorferi.
+// Adult ticks feed on them for the blood meal that fuels reproduction, but
+// spirochetes are typically lost rather than transmitted. We therefore track D
+// (population) but not Dinf — deer enter the model only as a demographic
+// resource for adult-tick feeding (see adultFeedSaturation in engine.ts).
 export const DEER = {
   r: 0.25,                       // slow growth, Odocoileus virginianus.
   // Suburban-edge carrying capacity. White-tailed deer in oak-hickory forest:
@@ -48,10 +59,18 @@ export const LYME = {
   // Probabilities per feeding event.
   pNymphToMouse: 0.83,           // Donahue et al. 1987; very efficient.
   pMouseToLarva: 0.65,           // Mather et al.; reservoir competence of mice.
-  // Annual contact intensity (bites per host per year, effective).
-  // No direct citation; derived from typical exposure × pNymphToMouse so that
-  // mouse infection prevalence equilibrates to literature endemic (~20-30%).
-  nymphBitesPerMouse: 4.0,
+  // Mouse FOI is density-based: hazard = pNymphToMouse · nymphContactRate ·
+  // (Ninf / M). Units of nymphContactRate are effective infectious contacts
+  // per (infected-nymph-per-mouse) per year — i.e. a per-mouse search-rate
+  // coefficient. Calibrated so that at endemic Ninf=100/cell, M=50/ha the
+  // hazard matches the prior fraction-based form (β·Ninf/M = 4·Ninf/N at
+  // those host densities). Replacing the fraction form means tick-density
+  // interventions (acaricide, tick tubes) now correctly reduce mouse FOI.
+  nymphContactRate: 0.40,
+  // Larvae: hazard per larva is pMouseToLarva · larvaBitesPerMouse · (Minf/M).
+  // Per-larva form is fraction-based because each larva takes ~one mouse meal
+  // and the probability that mouse is infected is exactly Minf/M. The constant
+  // sets effective exposure intensity to roll up multiple attempts per molt.
   larvaBitesPerMouse: 12.0,
   // Baseline vertical/co-feeding transmission (set 0 in v1).
   pVertical: 0,

@@ -17,19 +17,18 @@ export function updateMouseInfection(
   propertyScaleActive: boolean,
   mouseAcquisitionMul: number,
 ): number {
-  const N = cell.N;
   const Ninf = cell.Ninf;
   const M = cell.M;
   if (M <= 0) { cell.Minf = 0; return 0; }
 
-  // Fraction of nymphs that are infected.
-  const infFracN = N > 0 ? Ninf / N : 0;
-
-  // Susceptible mice get bitten by nymphs. Annual hazard:
-  //   h = pNymphToMouse * bites * fracInfectedNymphs
+  // Density-based annual hazard on susceptible mice:
+  //   h = pNymphToMouse · nymphContactRate · (Ninf / M)
+  // Scales with absolute infected-nymph density per mouse, so interventions
+  // that cut nymph numbers (acaricide, tick tubes, bait boxes) correctly
+  // reduce mouse FOI — not just ones that shift the infected fraction.
   // mouseAcquisitionMul applies the RTV antibody block at the mouse→tick
   // interface (anti-OspA neutralizes spirochetes in the feeding nymph).
-  const hazardMouse = LYME.pNymphToMouse * mouseAcquisitionMul * LYME.nymphBitesPerMouse * infFracN;
+  const hazardMouse = LYME.pNymphToMouse * mouseAcquisitionMul * LYME.nymphContactRate * (Ninf / M);
   const newInfFrac = 1 - Math.exp(-hazardMouse);
   const susceptible = M - cell.Minf;
   const newMouseInf = susceptible * newInfFrac;

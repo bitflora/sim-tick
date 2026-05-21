@@ -157,6 +157,15 @@ function stepCell(
   cell.Minf = Math.min(cell.Minf, cell.M);
   cell.D *= mods.deerDensityMul;
 
+  // 1a. Annual mouse turnover for the infected subset. P. leucopus has high
+  // annual mortality (~65%); infected individuals die at the same rate as
+  // susceptibles, while births (captured implicitly in the logistic step
+  // below) restock the population as susceptible. Net: M stays at its
+  // equilibrium under logistic dynamics, but Minf decays toward zero each
+  // year unless replenished by new acquisitions. Without this Minf ratchets
+  // up indefinitely and biases all downstream infection.
+  cell.Minf *= MOUSE.annualSurv;
+
   // 1b. Host logistic growth runs BEFORE tick/host interactions so larval
   // feeding, mouse infection acquisition, and case generation all see the
   // same mouse pool for the year. (Was previously between steps 5 and
