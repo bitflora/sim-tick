@@ -62,13 +62,18 @@ function persistentFor(i: number): PersistGlyph[] {
 function hasDeploy(i: number): boolean {
   return !!store.pendingDeployments[i] && store.pendingDeployments[i].size > 0;
 }
+
+function onCellClick(i: number) {
+  store.selectCell(i);
+  if (store.activeTool) store.toggleIntervention(i, store.activeTool);
+}
 </script>
 
 <template>
   <div class="grid-wrap panel">
     <h3>Ecosystem grid <small>— ↘ gradient: total ticks → infected nymphs</small></h3>
     <div class="grid-stack">
-    <div class="grid" :style="{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(64px, 1fr))` }">
+    <div class="grid" :class="{ painting: !!store.activeTool }" :style="{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(64px, 1fr))` }">
       <div
         v-for="(c, i) in store.grid"
         :key="i"
@@ -76,7 +81,7 @@ function hasDeploy(i: number): boolean {
         :class="{ selected: store.selectedCell === i, deploy: hasDeploy(i) }"
         :style="{ background: gradientFor(c) }"
         :title="`Cell ${i}: ticks=${(c.L + c.N + c.A).toFixed(0)} Ninf=${c.Ninf.toFixed(1)}`"
-        @click="store.selectCell(i)"
+        @click="onCellClick(i)"
       >
         <div v-if="lymeEradicated(c)" class="eradicated-check">✓</div>
         <div class="glyphs">
@@ -117,6 +122,7 @@ function hasDeploy(i: number): boolean {
   overflow: hidden;
 }
 .cell:hover { transform: scale(1.1); z-index: 1; border-color: #fff; }
+.grid.painting .cell { cursor: crosshair; }
 .cell.selected { border-color: var(--accent); }
 .cell.selected:hover { border-color: var(--accent); }
 .cell.deploy { box-shadow: inset 0 0 0 2px #fff; }

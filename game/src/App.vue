@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GridView from './components/GridView.vue';
+import InterventionToolbar from './components/InterventionToolbar.vue';
 import CellInspector from './components/CellInspector.vue';
 import BudgetBar from './components/BudgetBar.vue';
 import YearControls from './components/YearControls.vue';
@@ -14,6 +15,7 @@ import TickCrawlers from './components/TickCrawlers.vue';
       <YearControls />
     </header>
     <BudgetBar />
+    <InterventionToolbar />
     <div class="row">
       <div class="grid-col">
         <GridView />
@@ -31,5 +33,5 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 header h1 { font-size: 20px; }
 header small { color: var(--muted); font-weight: 400; }
 .row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-.grid-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.grid-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 </style>

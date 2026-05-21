@@ -27,6 +27,7 @@ interface State {
   animating: boolean;
   animationToken: number;
   rng: Rng;
+  activeTool: InterventionId | null;
 }
 
 function freshRng(): Rng {
@@ -49,6 +50,7 @@ export const useGameStore = defineStore('game', {
     animating: false,
     animationToken: 0,
     rng: freshRng(),
+    activeTool: null,
   }),
   getters: {
     pendingCost: (s): number => totalCost(s.pendingDeployments),
@@ -62,6 +64,9 @@ export const useGameStore = defineStore('game', {
   },
   actions: {
     selectCell(i: number) { this.selectedCell = i; },
+    setActiveTool(id: InterventionId | null) {
+      this.activeTool = this.activeTool === id ? null : id;
+    },
     toggleIntervention(cellIdx: number, id: InterventionId) {
       const set = this.pendingDeployments[cellIdx] ?? new Set<InterventionId>();
       if (set.has(id)) set.delete(id); else set.add(id);
@@ -109,6 +114,7 @@ export const useGameStore = defineStore('game', {
       this.animating = false;
       this.animationToken += 1;
       this.rng = freshRng();
+      this.activeTool = null;
     },
   },
 });
