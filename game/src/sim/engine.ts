@@ -179,10 +179,15 @@ function stepCell(
   // 2. Tick reproduction: eggs from adults need deer for blood meal.
   // Hard threshold near 0.05 deer/ha (Monhegan-style collapse) via Hill-3.
   const adultFeedSat = adultFeedSaturation(cell.deer);
+  // Allee mate-finding: sparse adults fail to encounter mates on shared hosts.
+  // Saturating in adult density so it only suppresses reproduction near
+  // collapse; negligible at endemic equilibrium. Enables true R₀<1 extinction
+  // rather than asymptotic decay-to-zero.
+  const mateSuccess = cell.adults / (cell.adults + TICK.alleeHalf);
   // NOTE: larvaSurvivalMul is applied at larva->nymph only; applying it here
   // would double-count tick-tube kill on the same cohort.
   const eggsToLarvae =
-    cell.adults * adultFeedSat * TICK.eggsPerAdult * TICK.sEggToLarva *
+    cell.adults * adultFeedSat * mateSuccess * TICK.eggsPerAdult * TICK.sEggToLarva *
     mods.tickSurvivalMul * cell.habitat *
     (rng ? lognormalNoise(rng) : 1);
 

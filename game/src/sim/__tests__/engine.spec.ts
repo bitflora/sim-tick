@@ -286,6 +286,47 @@ describe('engine', () => {
     expect(g[0].adults).toBeLessThan(baseline[0].adults * 0.2);
   });
 
+  it('Allee: sparse adults fail to recover even with hosts present', () => {
+    // Start a cell with very few adults (below alleeHalf scale) but full
+    // mouse/deer pools. Mate-finding floor should keep eggsToLarvae starved
+    // → larva/nymph/adult counts trend down rather than rebound to endemic.
+    let g = makeInitialGrid();
+    g[0].adults = 0.05;      // well below alleeHalf=0.3 → mate ≈ 0.14
+    g[0].nymphs = 0;
+    g[0].larvae = 0;
+    // Isolate from dispersal by zeroing neighbors' adults too.
+    for (const n of [1, 5]) g[n].adults = 0.05;
+    for (let y = 0; y < 5; y++) g = advanceYear(g, {}).grid;
+    // Sub-Allee start: adults stay well below baseline INIT.A.
+    expect(g[0].adults).toBeLessThan(INIT.A * 0.5);
+  });
+
+  it('Allee: high-density populations are NOT measurably affected', () => {
+    // At endemic A≈60/ha mate-finding ≈ 60/61 = 0.984. Baseline calibration
+    // (20-yr ±30% test above) should still pass; here we just sanity-check
+    // that yr1 nymph cohort isn't materially different from a pre-Allee
+    // theoretical baseline.
+    let g = makeInitialGrid();
+    const before = g[0].adults;
+    g = advanceYear(g, {}).grid;
+    // Cell adults should remain in a reasonable band (not collapse).
+    expect(g[0].adults).toBeGreaterThan(before * 0.5);
+  });
+
+  it('fungalBiocontrol reduces tick density', () => {
+    let gBase = makeInitialGrid();
+    let gFungi = makeInitialGrid();
+    const deploys: Deployments = {};
+    for (const i of allCells()) deploys[i] = new Set(['fungalBiocontrol']);
+    for (let y = 0; y < 3; y++) {
+      gBase = advanceYear(gBase, {}).grid;
+      gFungi = advanceYear(gFungi, deploys).grid;
+    }
+    const baseN = gBase.reduce((s, c) => s + c.nymphs, 0);
+    const fungiN = gFungi.reduce((s, c) => s + c.nymphs, 0);
+    expect(fungiN).toBeLessThan(baseN * 0.6);
+  });
+
   it('deerFencing on a contiguous block isolates the interior from deer dispersal', () => {
     // Fence the whole top row. Interior cell on row 1 should see deer dynamics
     // unaffected from the north (fenced cells exchange no deer).

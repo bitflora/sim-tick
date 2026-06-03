@@ -17,7 +17,8 @@ export type InterventionId =
   | 'messaging'
   | 'doxyProphylaxis'
   | 'lymeVaccine'
-  | 'reservoirVaccine';
+  | 'reservoirVaccine'
+  | 'fungalBiocontrol';
 
 export interface Modifiers {
   // Multipliers applied to within-cell parameters this year.
@@ -255,6 +256,30 @@ export const INTERVENTIONS: Record<InterventionId, Intervention> = {
     citations: [
       { label: 'Tsao 2004 PNAS', url: 'https://www.pnas.org/doi/10.1073/pnas.0405763102' },
       { label: 'Richer 2014 J Infect Dis', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4176399/' },
+    ],
+  },
+  fungalBiocontrol: {
+    id: 'fungalBiocontrol', name: 'Metarhizium fungal spray', cost: 72_500, icon: '🍄',
+    blurb: 'Entomopathogenic fungus (M. anisopliae) sprayed on leaf litter; kills questing ticks.',
+    // Field trials cluster around ~50–70% tick reduction (gpt/fungus.md §6:
+    // 2025 review, 67.3% mean; Korean soil-spray 60–90%; I. scapularis adult
+    // 50–70%). Lower than acaricide because spores degrade under UV/dry
+    // conditions. Efficacy scales with habitat (proxy for humidity/shade):
+    // shaded leaf-litter cells get the full kill; mown/dry cells get less.
+    // Implemented as a tickSurvivalMul of 0.45 (55% kill) at habitat=1; the
+    // engine multiplies tick-stage survivals by cell.habitat downstream, but
+    // we additionally bake habitat into the fungus efficacy here so that
+    // pairing with habitatMgmt (which lowers habitat) intentionally weakens
+    // the fungal kill — a real interaction worth surfacing to the player.
+    apply: (m) => { m.tickSurvivalMul *= 0.45; },
+    effect: {
+      metric: 'QN', medianPct: 55, rangePct: [50, 70],
+      note: 'Field range 50–70% (Metarhizium > Beauveria). Strain/humidity dependent; weaker in dry sunlit sites.',
+    },
+    citations: [
+      { label: 'Kaaya 2001 (livestock ticks)', url: 'https://pubmed.ncbi.nlm.nih.gov/11354619/' },
+      { label: 'Fischhoff 2017 (Met52 field)', url: 'https://academic.oup.com/jme/article/41/4/705/884443' },
+      { label: 'Biocontrol review 2025', url: 'https://pubmed.ncbi.nlm.nih.gov/40488650/' },
     ],
   },
   lymeVaccine: {

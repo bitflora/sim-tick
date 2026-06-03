@@ -25,6 +25,15 @@ export const TICK = {
   // DEER.K=0.5/ha: at D=0.5, μ_D = 0.974; at D=0.15 (k), μ_D = 0.5; sharp
   // collapse below k. Hard floor at 0.05/ha (Monhegan) still applies.
   kDeerHalf: 0.15,
+  // Allee mate-finding: probability a questing female encounters a male on
+  // the same host scales as A/(A + Aallee). At endemic A≈60/ha the multiplier
+  // is ~0.98 (no measurable effect); below ~5/ha it bites hard, driving the
+  // R₀<1 → extinction transition that pure linear models miss. Reference:
+  // research/gpt/tick-extinction.md §2 (Allee effect, mate failure on sparse
+  // hosts); Stephens & Sutherland 1999 (Allee in arthropod vectors).
+  // Tuned to keep mate-finding ≥ 0.995 at endemic A≈60/ha (negligible R₀ drag)
+  // while still collapsing reproduction below ~1/ha.
+  alleeHalf: 0.3, // adults/ha at which mate-finding success = 0.5
 };
 
 // --- Hosts ------------------------------------------------------------------
