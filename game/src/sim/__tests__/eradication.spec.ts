@@ -186,7 +186,8 @@ describe('eradication strategy search', () => {
       `Interventions referenced: ${Object.keys(INTERVENTIONS).join(', ')}`,
       '',
     ];
-    if (process.env.STRATEGY_REPORT === '1') console.log(lines.join('\n'));
+    const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+    if (proc?.env?.STRATEGY_REPORT === '1') console.log(lines.join('\n'));
     expect(sorted.length).toBe(STRATEGIES.length);
   });
 });
